@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"cmp"
+	"encoding/json"
 	"fmt"
 	"io/fs"
-	//"path/filepath"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,7 +15,7 @@ import (
 )
 
 type duplicateResult struct {
-    Keep   string    `json:"keep"`
+    Keep   []string  `json:"keep"`
     Delete []string  `json:"delete"`
 }
 
@@ -50,10 +53,11 @@ func findDuplicateFiles(rootPath string) error {
 	for _, v := range res.MapSizeStringSlices {
     if len(v) > 1 {
 			// create a duplicateResult struct
-			// find the keeper out of all the duplicates
-			// when in the same folder, keep the one with the shorter filename
-			// when in different folders, keep the one that is most deeply nested
-	    sb.WriteString(fmt.Sprintf("[%s],", strings.Join(v, ",")))
+			d := rankDuplicates(v, rootPath)
+			j, _ := json.Marshal(&d)
+			sb.WriteString(string(j))
+			sb.WriteString(",")
+	    //sb.WriteString(fmt.Sprintf("[%s],", strings.Join(v, ",")))
 		}
   }
 	// dump the string
@@ -69,46 +73,67 @@ func findDuplicateFiles(rootPath string) error {
 }
 
 func dupeBySize(path string, info fs.FileInfo, results *common.WalkResults) error {
-	results.MapSizeStringSlices[info.Size()] = append(results.MapSizeStringSlices[info.Size()], fmt.Sprintf("\"%s\"", path))
+	results.MapSizeStringSlices[info.Size()] = append(results.MapSizeStringSlices[info.Size()], path)
 	if len(results.MapSizeStringSlices[info.Size()]) > 1 {
 		results.Count++
 	}
 	return nil
 }
 
-//func traceWalk(path string, info fs.FileInfo, results *common.WalkResults) error {
-//	// Open the file to get more details
-//	file, err := os.Open(path)
-//	if err != nil {
-//		fmt.Printf("Error opening file path: %s, err: %v\n", path, err)
-//		return err // TODO does this stop the walking?
-//	} else {
-//		defer file.Close()
-//		if results.MapSizeString[info.Size()] == "" {
-//			results.MapSizeString[info.Size()] = path
-//		} else {
-//			// If the filename is an exact match
-//			thisName := filepath.Base(path)
-//			maybeMatchName := filepath.Base(results.MapSizeString[info.Size()])
-//		  thisExt := strings.ToLower(filepath.Ext(path))
-//			maybeMatchExt := strings.ToLower(filepath.Ext(results.MapSizeString[info.Size()]))
-//			if thisName == maybeMatchName {
-//			  //fmt.Printf("Size: %d\n", info.Size())
-//		    //fmt.Printf("  Path: %s\n", path)
-//			  //fmt.Printf("  Dupe: %s\n", results.MapSizeString[info.Size()])
-//				results.Count++
-//			} else if thisExt == maybeMatchExt {
-//				// What if extensions match?
-//			  //fmt.Printf("Size: %d\n", info.Size())
-//		    //fmt.Printf("  Path: %s\n", path)
-//			  //fmt.Printf("  Dupe: %s\n", results.MapSizeString[info.Size()])
-//				results.Count++
-//			}
-//		}
-//		//fmt.Printf("File: %s\n", filepath.Base(path))
-//		//fmt.Printf("  Path: %s\n", path)
-//		//fmt.Printf("  Size: %d bytes\n", info.Size())
-//	}
-//	return nil
-//}
+func rankDuplicates(dupes []string, rootPath string) duplicateResult {
+	r := duplicateResult{}
+	// make a copy of the input
+  d := slices.Clone(dupes)
+	// sort by filename alphabetically
+	slices.SortFunc(d, filepathBaseAlphaAscCmp)
+	// sort by filename length
+	slices.SortFunc(d, filepathBaseLengthAscCmp)
+	// sort by folder length
+	slices.SortFunc(d, filepathDirLengthDescCmp)
+
+	for i, path := range d {
+		// always keep the top entry
+		if i == 0 {
+			r.Keep = append(r.Keep, path)
+			continue
+		}
+		// If entry is in the same folder as the top one, delete it
+		if filepath.Dir(r.Keep[0]) == filepath.Dir(path) {
+			r.Delete = append(r.Delete, path)			
+			continue
+		}
+		// if the entry is NOT in the root path folder, mark as keep
+		if isInRootPath(path, rootPath) {
+			r.Keep = append(r.Keep, path)
+		} else {
+			// otherwise mark delete
+			r.Delete = append(r.Delete, path)
+		}
+	}
+
+	return r
+}
+
+func filepathBaseAlphaAscCmp(a, b string) int {
+	// remove the file extension before comparing
+	baseA := strings.TrimSuffix(a, filepath.Ext(a))
+	baseB := strings.TrimSuffix(b, filepath.Ext(b))
+  return cmp.Compare(baseA, baseB)
+}
+
+func filepathBaseLengthAscCmp(a, b string) int {
+  return cmp.Compare(len(filepath.Base(a)), len(filepath.Base(b)))
+}
+
+func filepathDirLengthDescCmp(a, b string) int {
+  return -cmp.Compare(len(filepath.Dir(a)), len(filepath.Dir(b)))
+}
+
+func isInRootPath(path string, rootPath string) bool {
+	rel, _ := filepath.Rel(rootPath, path)
+	if filepath.Dir(rel) == "." {
+		return false
+	} 
+	return true
+}
 

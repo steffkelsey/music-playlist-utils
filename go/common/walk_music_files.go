@@ -56,7 +56,5 @@ func WalkAllMusicFiles(folder string, processFunc func(path string, info fs.File
 		return results, err
 	}
 
-	// TODO do we need another processFunc for going through all the results?
-		
 	return results, nil
 }
