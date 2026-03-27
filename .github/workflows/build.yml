@@ -9,9 +9,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
-        working-directory: ./go
         with:
-          go-version-file: 'go.mod'
+          go-version-file: './go/go.mod'
+          cache-dependency-path: './go/go.sum'
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -24,10 +24,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
       - name: Install Go
-        working-directory: ./go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: './go/go.mod'
+          cache-dependency-path: './go/go.sum'
           check-latest: true
           cache: true
       - name: Test
