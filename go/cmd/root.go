@@ -10,6 +10,7 @@ import (
 
 var inputDir string
 var outputDir string
+var isDryRun bool
 
 var rootCmd = &cobra.Command{
 	Use:   "music-utils",
@@ -27,7 +28,8 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVarP(&isDryRun, common.ParamDryRun, "d", false, "dry run")
 	rootCmd.PersistentFlags().StringVarP(&inputDir, common.ParamInputDir, "i", "$HOME/Music", "input directory")
-	rootCmd.PersistentFlags().StringVarP(&outputDir, common.ParamOutputDir, "o", "$HOME/music-utils-out", "output directory")
+	rootCmd.PersistentFlags().StringVarP(&outputDir, common.ParamOutputDir, "o", "$HOME", "output directory")
 }
 

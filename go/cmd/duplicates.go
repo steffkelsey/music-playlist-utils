@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 
 	"music-utils/common"
@@ -31,10 +32,15 @@ input folder.`,
 		if err != nil {
 			return err
 		}
+		// Verify the output directory exists
+		outputDir, err = common.FlagDirectoryExists(outputDir)
+		if err != nil {
+			return err
+		}
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := findDuplicateFiles(inputDir)
+		err := findDuplicateFiles(inputDir, isDryRun)
 		return err
 	},
 }
@@ -43,21 +49,40 @@ func init() {
 	rootCmd.AddCommand(duplicatesCmd)
 }
 
-func findDuplicateFiles(rootPath string) error {
+func findDuplicateFiles(rootPath string, isDryRun bool) error {
 	res, err := common.WalkAllMusicFiles(rootPath, dupeBySize)
 	if err != nil {
 		return err
 	}
 	var sb strings.Builder
 	sb.WriteString(`{"duplicates": [`)
-	for _, v := range res.MapSizeStringSlices {
+	act := common.Continue
+	loop: for _, v := range res.MapSizeStringSlices {
     if len(v) > 1 {
 			// create a duplicateResult struct
 			d := rankDuplicates(v, rootPath)
-			j, _ := json.Marshal(&d)
-			sb.WriteString(string(j))
-			sb.WriteString(",")
-	    //sb.WriteString(fmt.Sprintf("[%s],", strings.Join(v, ",")))
+			if !isDryRun {
+				switch act {
+				case common.Continue:
+				  act, err = promptAndMaybeDelete(&d)
+				  if err != nil {
+						fmt.Printf("Error deleting file: %v", err)
+				  	return err
+				  }
+					fmt.Println()
+				case common.ConfirmAll:
+				  // delete the files without asking
+					common.DeleteFiles(d.Delete)
+				case common.Abort:
+					break loop
+				}
+			}
+			// Only write if out one of the slices has paths
+			if len(d.Keep) > 0 || len(d.Delete) > 0 {
+			  j, _ := json.Marshal(&d)
+			  sb.WriteString(string(j))
+			  sb.WriteString(",")
+			}
 		}
   }
 	// dump the string
@@ -68,7 +93,20 @@ func findDuplicateFiles(rootPath string) error {
 	jsonString += "]"
 	// close the object
 	jsonString += "}"
-	fmt.Println(jsonString)
+	if isDryRun {
+	  fmt.Println(jsonString)
+	} else {
+		// create a destination for the report
+		reportPath := filepath.Join(outputDir, "deleted-duplicates.json")
+		// We don't want to overwrite reports, so make sure the path is unique
+		reportPath = common.FindFileNameNoOverWrite(reportPath)
+		// ask if they want to save the json report and save it if so
+		err := common.PromptAndMaybeSaveFile(reportPath, []byte(jsonString))
+		if err != nil {
+			fmt.Printf("Error writing json report, %v\n", err)
+			return err
+		}
+	}
 	return nil
 }
 
@@ -135,5 +173,49 @@ func isInRootPath(path string, rootPath string) bool {
 		return false
 	} 
 	return true
+}
+
+func promptAndMaybeDelete(d *duplicateResult) (int, error) {
+	fmt.Printf(`Keep:
+%s	
+
+Delete:
+%s
+
+`,
+		strings.Join(d.Keep, "\n"),
+		strings.Join(d.Delete, "\n"))
+  prompt := promptui.Select{
+		Label: "Delete?",
+		Items: []string{"Yes", "No", "Confirm All. Don't Ask Again", "Quit"},
+	}
+
+	_, result, err := prompt.Run()
+
+	if err != nil {
+		// User hit ctrl-c or something
+		return common.Abort, err
+	}
+
+	switch result {
+	case "No":
+	  fmt.Printf("\nSkipping...\n")
+	  // Empty the result so it is not recorded
+		d.Keep = []string{}
+	  d.Delete = []string{}
+	case "Yes":
+		err = common.DeleteFiles(d.Delete)
+	case "Confirm All. Don't Ask Again":
+		// Delete the files we just presented to the user
+		err = common.DeleteFiles(d.Delete)
+		// Send back that all future deletions are confirmed
+	  return common.ConfirmAll, err
+	case "Quit":
+	  // Empty the result so it is not recorded
+		d.Keep = []string{}
+	  d.Delete = []string{}
+	 	return common.Abort, nil
+	}
+	return common.Continue, err
 }
 
