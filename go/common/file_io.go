@@ -9,13 +9,12 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
-
 func PromptAndMaybeSaveFile(path string, data []byte) error {
 	msg := `Save results at:
 %s
 `
 	fmt.Printf(msg, path)
-  p := promptui.Prompt{
+	p := promptui.Prompt{
 		Label:     "Confirm",
 		IsConfirm: true,
 	}
@@ -26,14 +25,13 @@ func PromptAndMaybeSaveFile(path string, data []byte) error {
 	}
 	// create the file at the path
 	f, err := os.Create(path)
-
-	// close the file when done
-	defer f.Close()
-
 	if err != nil {
 		fmt.Printf("Error creating file, %v\n", err)
 		return err
 	}
+
+	// close the file when done
+	defer f.Close()
 
 	// write to the file
 	_, err = f.Write(data)
@@ -66,10 +64,10 @@ func findFileNameNoOverWriteWithNums(path string, num int) string {
 	newFilename = strings.TrimSuffix(newFilename, filepath.Ext(path))
 	newFilename = fmt.Sprintf("%s%s%s", newFilename, suffix, filepath.Ext(path))
 	maybeGoodPath := filepath.Join(filepath.Dir(path), newFilename)
-  _, err := os.Stat(maybeGoodPath)
+	_, err := os.Stat(maybeGoodPath)
 	if err != nil {
-	  return maybeGoodPath
-	}	
+		return maybeGoodPath
+	}
 	num++
 	return findFileNameNoOverWriteWithNums(path, num)
 }
@@ -77,12 +75,11 @@ func findFileNameNoOverWriteWithNums(path string, num int) string {
 func DeleteFiles(paths []string) error {
 	for _, path := range paths {
 		err := os.Remove(path)
-	  if err != nil {
+		if err != nil {
 			return err
-	  	//log.Fatal(err)
-	  }
+			//log.Fatal(err)
+		}
 		fmt.Printf("- %s\n", path)
 	}
 	return nil
 }
-

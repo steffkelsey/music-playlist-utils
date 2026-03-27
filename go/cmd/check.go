@@ -22,7 +22,7 @@ Music files must have a mp3, mp4, m4a, or m4p extension.
 eg:
 Check all the files in the root folder $HOME/Music and export any without tags to $HOME/no-tags
 music-utils check -i "$HOME/Music" -o "$HOME/no-tags"`,
-  PreRunE: func(cmd *cobra.Command, args []string) error {
+	PreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 		// Verify that input dir exists
 		inputDir, err = common.FlagDirectoryExists(inputDir)
@@ -53,7 +53,8 @@ func findUntaggedFiles(rootPath string) error {
 	}
 	var sb strings.Builder
 	sb.WriteString(`{"untagged": `)
-	sb.WriteString(fmt.Sprintf("[%s]", strings.Join(res.Files, ",")))
+	//sb.WriteString(fmt.Sprintf("[%s]", strings.Join(res.Files, ",")))
+	fmt.Fprintf(&sb, "[%s]", strings.Join(res.Files, ","))
 	// dump the string
 	jsonString := sb.String()
 	// close the object

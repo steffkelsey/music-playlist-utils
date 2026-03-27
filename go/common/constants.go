@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	ParamDryRun = "dry-run"
-	ParamInputDir = "inputDir"
+	ParamDryRun    = "dry-run"
+	ParamInputDir  = "inputDir"
 	ParamOutputDir = "outputDir"
 
 	ExtMp3 = ".mp3"
@@ -15,9 +15,9 @@ const (
 	ExtM4a = ".m4a"
 	ExtM4p = ".m4p"
 
-	Continue = 0
+	Continue   = 0
 	ConfirmAll = 1
-	Abort = -1
+	Abort      = -1
 )
 
 // IsMusicFile determines if the given path points to a music file based

@@ -16,8 +16,8 @@ import (
 )
 
 type duplicateResult struct {
-    Keep   []string  `json:"keep"`
-    Delete []string  `json:"delete"`
+	Keep   []string `json:"keep"`
+	Delete []string `json:"delete"`
 }
 
 var duplicatesCmd = &cobra.Command{
@@ -25,7 +25,7 @@ var duplicatesCmd = &cobra.Command{
 	Short: "Finds duplicate music files",
 	Long: `Finds duplicate music files in the given
 input folder.`,
-  PreRunE: func(cmd *cobra.Command, args []string) error {
+	PreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 		// Verify that input dir exists
 		inputDir, err = common.FlagDirectoryExists(inputDir)
@@ -57,21 +57,22 @@ func findDuplicateFiles(rootPath string, isDryRun bool) error {
 	var sb strings.Builder
 	sb.WriteString(`{"duplicates": [`)
 	act := common.Continue
-	loop: for _, v := range res.MapSizeStringSlices {
-    if len(v) > 1 {
+loop:
+	for _, v := range res.MapSizeStringSlices {
+		if len(v) > 1 {
 			// create a duplicateResult struct
 			d := rankDuplicates(v, rootPath)
 			if !isDryRun {
 				switch act {
 				case common.Continue:
-				  act, err = promptAndMaybeDelete(&d)
-				  if err != nil {
+					act, err = promptAndMaybeDelete(&d)
+					if err != nil {
 						fmt.Printf("Error deleting file: %v", err)
-				  	return err
-				  }
+						return err
+					}
 					fmt.Println()
 				case common.ConfirmAll:
-				  // delete the files without asking
+					// delete the files without asking
 					common.DeleteFiles(d.Delete)
 				case common.Abort:
 					break loop
@@ -79,22 +80,23 @@ func findDuplicateFiles(rootPath string, isDryRun bool) error {
 			}
 			// Only write if out one of the slices has paths
 			if len(d.Keep) > 0 || len(d.Delete) > 0 {
-			  j, _ := json.Marshal(&d)
-			  sb.WriteString(string(j))
-			  sb.WriteString(",")
+				j, _ := json.Marshal(&d)
+				s := string(j)
+				sb.WriteString(s)
+				sb.WriteString(",")
 			}
 		}
-  }
+	}
 	// dump the string
 	jsonString := sb.String()
 	// trim any dangling comma
-  jsonString = strings.TrimSuffix(jsonString, ",")
+	jsonString = strings.TrimSuffix(jsonString, ",")
 	// close the duplicates array
 	jsonString += "]"
 	// close the object
 	jsonString += "}"
 	if isDryRun {
-	  fmt.Println(jsonString)
+		fmt.Println(jsonString)
 	} else {
 		// create a destination for the report
 		reportPath := filepath.Join(outputDir, "deleted-duplicates.json")
@@ -121,7 +123,7 @@ func dupeBySize(path string, info fs.FileInfo, results *common.WalkResults) erro
 func rankDuplicates(dupes []string, rootPath string) duplicateResult {
 	r := duplicateResult{}
 	// make a copy of the input
-  d := slices.Clone(dupes)
+	d := slices.Clone(dupes)
 	// sort by filename alphabetically
 	slices.SortFunc(d, filepathBaseAlphaAscCmp)
 	// sort by filename length
@@ -137,7 +139,7 @@ func rankDuplicates(dupes []string, rootPath string) duplicateResult {
 		}
 		// If entry is in the same folder as the top one, delete it
 		if filepath.Dir(r.Keep[0]) == filepath.Dir(path) {
-			r.Delete = append(r.Delete, path)			
+			r.Delete = append(r.Delete, path)
 			continue
 		}
 		// if the entry is NOT in the root path folder, mark as keep
@@ -156,23 +158,20 @@ func filepathBaseAlphaAscCmp(a, b string) int {
 	// remove the file extension before comparing
 	baseA := strings.TrimSuffix(a, filepath.Ext(a))
 	baseB := strings.TrimSuffix(b, filepath.Ext(b))
-  return cmp.Compare(baseA, baseB)
+	return cmp.Compare(baseA, baseB)
 }
 
 func filepathBaseLengthAscCmp(a, b string) int {
-  return cmp.Compare(len(filepath.Base(a)), len(filepath.Base(b)))
+	return cmp.Compare(len(filepath.Base(a)), len(filepath.Base(b)))
 }
 
 func filepathDirLengthDescCmp(a, b string) int {
-  return -cmp.Compare(len(filepath.Dir(a)), len(filepath.Dir(b)))
+	return -cmp.Compare(len(filepath.Dir(a)), len(filepath.Dir(b)))
 }
 
 func isInRootPath(path string, rootPath string) bool {
 	rel, _ := filepath.Rel(rootPath, path)
-	if filepath.Dir(rel) == "." {
-		return false
-	} 
-	return true
+	return filepath.Dir(rel) != "."
 }
 
 func promptAndMaybeDelete(d *duplicateResult) (int, error) {
@@ -185,7 +184,7 @@ Delete:
 `,
 		strings.Join(d.Keep, "\n"),
 		strings.Join(d.Delete, "\n"))
-  prompt := promptui.Select{
+	prompt := promptui.Select{
 		Label: "Delete?",
 		Items: []string{"Yes", "No", "Confirm All. Don't Ask Again", "Quit"},
 	}
@@ -199,23 +198,22 @@ Delete:
 
 	switch result {
 	case "No":
-	  fmt.Printf("\nSkipping...\n")
-	  // Empty the result so it is not recorded
+		fmt.Printf("\nSkipping...\n")
+		// Empty the result so it is not recorded
 		d.Keep = []string{}
-	  d.Delete = []string{}
+		d.Delete = []string{}
 	case "Yes":
 		err = common.DeleteFiles(d.Delete)
 	case "Confirm All. Don't Ask Again":
 		// Delete the files we just presented to the user
 		err = common.DeleteFiles(d.Delete)
 		// Send back that all future deletions are confirmed
-	  return common.ConfirmAll, err
+		return common.ConfirmAll, err
 	case "Quit":
-	  // Empty the result so it is not recorded
+		// Empty the result so it is not recorded
 		d.Keep = []string{}
-	  d.Delete = []string{}
-	 	return common.Abort, nil
+		d.Delete = []string{}
+		return common.Abort, nil
 	}
 	return common.Continue, err
 }
-

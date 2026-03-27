@@ -7,19 +7,18 @@ import (
 )
 
 type WalkResults struct {
-    Count int64
-		MapSizeStringSlices map[int64][]string
-		Files []string
-		RootPath string
+	Count               int64
+	MapSizeStringSlices map[int64][]string
+	Files               []string
+	RootPath            string
 }
-
 
 func WalkAllMusicFiles(folder string, processFunc func(path string, info fs.FileInfo, results *WalkResults) error) (WalkResults, error) {
 	results := WalkResults{
-		Count: 0,
+		Count:               0,
 		MapSizeStringSlices: make(map[int64][]string),
-		Files: make([]string, 0),
-		RootPath: folder,
+		Files:               make([]string, 0),
+		RootPath:            folder,
 	}
 
 	err := filepath.Walk(folder, func(path string, info fs.FileInfo, err error) error {

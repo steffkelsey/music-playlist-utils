@@ -20,14 +20,14 @@ func TestRankDuplicates(t *testing.T) {
 				"/home/user/Music/album/file.mp4",
 				"/home/user/Music/file.mp4",
 				"/home/user/Music/file 1.mp4",
-			}, 
+			},
 			duplicateResult{
 				Keep: []string{
-				  "/home/user/Music/album/file.mp4",
+					"/home/user/Music/album/file.mp4",
 				},
 				Delete: []string{
-				  "/home/user/Music/file.mp4",
-				  "/home/user/Music/file 1.mp4",
+					"/home/user/Music/file.mp4",
+					"/home/user/Music/file 1.mp4",
 				},
 			},
 		},
@@ -37,14 +37,14 @@ func TestRankDuplicates(t *testing.T) {
 				"/home/user/Music/file 2.mp4",
 				"/home/user/Music/file 1.mp4",
 				"/home/user/Music/file.mp4",
-			}, 
+			},
 			duplicateResult{
 				Keep: []string{
-				  "/home/user/Music/file.mp4",
+					"/home/user/Music/file.mp4",
 				},
 				Delete: []string{
-				  "/home/user/Music/file 1.mp4",
-				  "/home/user/Music/file 2.mp4",
+					"/home/user/Music/file 1.mp4",
+					"/home/user/Music/file 2.mp4",
 				},
 			},
 		},
@@ -54,14 +54,14 @@ func TestRankDuplicates(t *testing.T) {
 				"/home/user/Music/file 2.mp4",
 				"/home/user/Music/album/file 1.mp4",
 				"/home/user/Music/album/file.mp4",
-			}, 
+			},
 			duplicateResult{
 				Keep: []string{
-				  "/home/user/Music/album/file.mp4",
+					"/home/user/Music/album/file.mp4",
 				},
 				Delete: []string{
-				  "/home/user/Music/album/file 1.mp4",
-				  "/home/user/Music/file 2.mp4",
+					"/home/user/Music/album/file 1.mp4",
+					"/home/user/Music/file 2.mp4",
 				},
 			},
 		},
@@ -85,12 +85,12 @@ func TestFilepathBaseAlphaAscSort(t *testing.T) {
 				"/home/user/Music/a.mp4",
 				"/home/user/Music/a 1.mp4",
 				"/home/user/Music/album/a 2.mp4",
-			}, 
+			},
 			[]string{
 				"/home/user/Music/a.mp4",
 				"/home/user/Music/a 1.mp4",
 				"/home/user/Music/album/a 2.mp4",
-			}, 
+			},
 		},
 	}
 
@@ -111,12 +111,12 @@ func TestFilepathBaseLengthAscSort(t *testing.T) {
 				"/home/user/Music/file 1.mp4",
 				"/home/user/Music/file.mp4",
 				"/home/user/Music/album/file.mp4",
-			}, 
+			},
 			[]string{
 				"/home/user/Music/file.mp4",
 				"/home/user/Music/album/file.mp4",
 				"/home/user/Music/file 1.mp4",
-			}, 
+			},
 		},
 	}
 
@@ -137,12 +137,12 @@ func TestFilepathDirLengthDescSort(t *testing.T) {
 				"/home/user/Music/file 1.mp4",
 				"/home/user/Music/artist/album/file.mp4",
 				"/home/user/Music/album/file.mp4",
-			}, 
+			},
 			[]string{
 				"/home/user/Music/artist/album/file.mp4",
 				"/home/user/Music/album/file.mp4",
 				"/home/user/Music/file 1.mp4",
-			}, 
+			},
 		},
 	}
 
@@ -151,4 +151,3 @@ func TestFilepathDirLengthDescSort(t *testing.T) {
 		c.Assert(test.input, qt.CmpEquals(), test.expected)
 	}
 }
-
