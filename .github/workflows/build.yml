@@ -10,7 +10,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
-          go-version-file: './go/go.mod'
+          working-directory: ./go
+          go-version-file: 'go.mod'
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -25,7 +26,8 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: './go/go.mod'
+          working-directory: ./go
+          go-version-file: 'go.mod'
           check-latest: true
           cache: true
       - name: Test
