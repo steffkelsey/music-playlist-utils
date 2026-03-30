@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,9 +78,56 @@ func DeleteFiles(paths []string) error {
 		err := os.Remove(path)
 		if err != nil {
 			return err
-			//log.Fatal(err)
 		}
 		fmt.Printf("- %s\n", path)
 	}
 	return nil
+}
+
+func CopyFile(from string, to string) error {
+	// create the directory in the "to" location
+	err := os.MkdirAll(filepath.Dir(to), 0755)
+	if err != nil {
+		return err
+	}
+	// create and open the file at the "to" location
+	t, err := os.Create(to)
+	if err != nil {
+		return err
+	}
+	// open the file at the "from" path
+	f, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	// copy "from" -> "to"
+	_, err = io.Copy(t, f)
+	if err != nil {
+		return err
+	}
+	// close all open files
+	err = t.Close()
+	if err != nil {
+		return err
+	}
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func SwapRoot(path string, oldRoot string, newRoot string) string {
+	rel, err := filepath.Rel(oldRoot, path)
+	if err != nil {
+		fmt.Printf("error finding relative path %v\n", err)
+		fmt.Printf("Dir(): %s\n", filepath.Dir(path))
+	}
+
+	return filepath.Join(newRoot, rel)
+}
+
+func Sanitize(path *string) {
+	*path = strings.TrimPrefix(*path, "\"")
+	*path = strings.TrimSuffix(*path, "\"")
 }

@@ -81,8 +81,7 @@ loop:
 			// Only write if out one of the slices has paths
 			if len(d.Keep) > 0 || len(d.Delete) > 0 {
 				j, _ := json.Marshal(&d)
-				s := string(j)
-				sb.WriteString(s)
+				sb.Write(j)
 				sb.WriteString(",")
 			}
 		}

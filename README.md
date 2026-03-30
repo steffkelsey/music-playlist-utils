@@ -3,9 +3,9 @@
 The problem I need to solve is that I recently recovered some HDs that have
 a ton of music on them from old iTunes libs. The files are not correctly
 organized for adding to a Jellyfin server - lots of loose files that are not
-in a folder or folders and files that are labeled incorrectly. BUT, all the
-metadata looks really good! And, there are some m4p files that are stuck in 
-Fairplay encryption (about 775 of them).
+in a folder or folders and files that are labeled incorrectly. In addition, the
+metadata looks rough and I suspect a bunch of duplicated files! There are some 
+m4p files that are stuck in Fairplay encryption (about 775 incl' possible dupes).
 
 ## Final state
 
@@ -43,9 +43,12 @@ A JSON file that shows where each file moved to
 In Go
 - [ ] make sure all files have metadata for Album Title, Track Num, Track Name,
 Track Artist
-- [ ] move files from current location to desired location as outlined above
-- [ ] create a JSON file showing where each file was copied or moved to
+- [ ] copy all files that don't have metadata to another root folder preserving subfolders (easier for musicbrainz etc to deal with)
+- [ ] move files from current location to desired location by metatag data as outlined above
+- [ ] create a JSON file showing where each file was moved to and from
 - [ ] for a given m3u and JSON file, update each track with the new location preserving track order
+- [ ] for each m3u file, show any broken music file paths
+- [ ] do a fuzzy search by filename (eg: omit last 3 chars before extension)
 
 In Python
 - [ ] Use ytmusicapi to find entire albums of encrypted Music
