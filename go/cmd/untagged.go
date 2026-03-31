@@ -102,7 +102,7 @@ func isFileUntagged(path string, info fs.FileInfo, results *common.WalkResults) 
 		// Use dhowden/tag to read metadata
 		m, err := tag.ReadFrom(file)
 		if err != nil {
-			results.Files = append(results.Files, fmt.Sprintf("\"%s\"", path))
+			results.Files = append(results.Files, path)
 			results.Count++
 		} else {
 			isTagGood := true
