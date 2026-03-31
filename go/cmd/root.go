@@ -28,7 +28,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVarP(&isDryRun, common.ParamDryRun, "d", false, "dry run")
+	rootCmd.PersistentFlags().BoolVarP(&isDryRun, common.ParamDryRun, "d", false, "Outputs in JSON. No changes are made")
 	rootCmd.PersistentFlags().StringVarP(&inputDir, common.ParamInputDir, "i", "$HOME/Music", "input directory")
 	rootCmd.PersistentFlags().StringVarP(&outputDir, common.ParamOutputDir, "o", "$HOME", "output directory")
 }

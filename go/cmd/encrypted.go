@@ -23,7 +23,7 @@ eg:
 Check all the files in the root folder $HOME/Music and export any encrypted 
 to $HOME/encrypted
 
-music-utils check -i "$HOME/Music" -o "$HOME/encrypted"`,
+music-utils encrypted -i "$HOME/Music" -o "$HOME/encrypted"`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 		// Verify that input dir exists

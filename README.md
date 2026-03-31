@@ -53,5 +53,6 @@ Track Artist
 - [ ] move an m3u file to a new folder and update the tracks so it doesn't break (if using relative paths)
 
 In Python
+- [ ] use the exiftool binary to read the metadata for album, artist, track name, etc for each encrypted file
 - [ ] Use ytmusicapi to find entire albums of encrypted Music
 - [ ] Use ytmusicapi to find individual tracks that match (maybe a Greatest Hits album doesn't exist on YT Music but the tracks exist on other albums)

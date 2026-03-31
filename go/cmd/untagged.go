@@ -25,7 +25,7 @@ eg:
 Check all the files in the root folder $HOME/Music and export any without tags 
 to $HOME/no-tags
 
-music-utils check -i "$HOME/Music" -o "$HOME/no-tags"`,
+music-utils untagged -i "$HOME/Music" -o "$HOME/no-tags"`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 		// Verify that input dir exists
