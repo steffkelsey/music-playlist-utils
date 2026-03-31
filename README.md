@@ -41,14 +41,16 @@ A JSON file that shows where each file moved to
 ## TODO
 
 In Go
-- [ ] make sure all files have metadata for Album Title, Track Num, Track Name,
+- [x] Find duplicate files and prompt user to remove them one by one or confirm all with report outputting what was kept and what was deleted
+- [x] make sure all files have metadata for Album Title, Track Num, Track Name,
 Track Artist
-- [ ] copy all files that don't have metadata to another root folder preserving subfolders (easier for musicbrainz etc to deal with)
+- [x] copy all files that don't have metadata to another root folder preserving subfolders (easier for musicbrainz etc to deal with)
 - [ ] move files from current location to desired location by metatag data as outlined above
 - [ ] create a JSON file showing where each file was moved to and from
 - [ ] for a given m3u and JSON file, update each track with the new location preserving track order
 - [ ] for each m3u file, show any broken music file paths
 - [ ] do a fuzzy search by filename (eg: omit last 3 chars before extension)
+- [ ] move an m3u file to a new folder and update the tracks so it doesn't break (if using relative paths)
 
 In Python
 - [ ] Use ytmusicapi to find entire albums of encrypted Music

@@ -37,7 +37,7 @@ func WalkAllMusicFiles(folder string, processFunc func(path string, info fs.File
 			return nil
 		}
 
-		// If it's an MP3 or MP4 file, run the processFunc
+		// If it's an music file, run the processFunc
 		if IsMusicFile(path) {
 			err = processFunc(path, info, &results)
 			if err != nil {

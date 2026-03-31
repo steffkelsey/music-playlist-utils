@@ -33,3 +33,14 @@ func IsMusicFile(path string) bool {
 	}
 	return false
 }
+
+// IsEncryptedFile determines if the given path points to an encrypted music
+// file based solely on file extension.
+//
+// A successful IsEncryptedFile returns true.
+func IsEncryptedFile(path string) bool {
+	// Get file extension
+	ext := strings.ToLower(filepath.Ext(path))
+	// return if is an encrypted type
+	return ext == ExtM4p
+}

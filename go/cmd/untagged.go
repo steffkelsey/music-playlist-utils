@@ -14,8 +14,8 @@ import (
 	"music-utils/common"
 )
 
-var checkCmd = &cobra.Command{
-	Use:   "check",
+var untaggedCmd = &cobra.Command{
+	Use:   "untagged",
 	Short: "Copies files where required metadata does NOT exist",
 	Long: `Copies files where the required metadata does NOT exists in the given 
 input directory to the given output directory preserving subfolders. Dry run 
@@ -47,7 +47,7 @@ music-utils check -i "$HOME/Music" -o "$HOME/no-tags"`,
 }
 
 func init() {
-	rootCmd.AddCommand(checkCmd)
+	rootCmd.AddCommand(untaggedCmd)
 }
 
 func findUntaggedFiles(rootPath string) error {
@@ -88,6 +88,10 @@ func findUntaggedFiles(rootPath string) error {
 }
 
 func isFileUntagged(path string, info fs.FileInfo, results *common.WalkResults) error {
+	// if the file is encrypted, skip
+	if common.IsEncryptedFile(path) {
+		return nil
+	}
 	// Open the file to get more details
 	file, err := os.Open(path)
 	if err != nil {
