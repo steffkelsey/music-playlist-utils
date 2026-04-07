@@ -104,7 +104,7 @@ loop:
 		// ask if they want to save the json report and save it if so
 		msg := fmt.Sprintf(`Save report at:
 %s		
-`)
+`, reportPath)
 		didSave, err := common.PromptAndMaybeSaveFile(reportPath, []byte(jsonString), msg)
 		if err != nil {
 			fmt.Printf("Error writing json report, %v\n", err)
