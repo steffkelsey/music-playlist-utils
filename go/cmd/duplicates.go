@@ -102,10 +102,16 @@ loop:
 		// We don't want to overwrite reports, so make sure the path is unique
 		reportPath = common.FindFileNameNoOverWrite(reportPath)
 		// ask if they want to save the json report and save it if so
-		err := common.PromptAndMaybeSaveFile(reportPath, []byte(jsonString))
+		msg := fmt.Sprintf(`Save report at:
+%s		
+`)
+		didSave, err := common.PromptAndMaybeSaveFile(reportPath, []byte(jsonString), msg)
 		if err != nil {
 			fmt.Printf("Error writing json report, %v\n", err)
 			return err
+		}
+		if didSave {
+			fmt.Println("Report saved")
 		}
 	}
 	return nil

@@ -27,3 +27,39 @@ func TestSwapRoot(t *testing.T) {
 		c.Assert(SwapRoot(test.inputPath, test.inputOldRoot, test.inputNewRoot), qt.Equals, test.expected)
 	}
 }
+
+func TestCreateAbsPath(t *testing.T) {
+	c := qt.New(t)
+	tests := []struct {
+		inputPath         string
+		inputPlaylistRoot string
+		expected          string
+	}{
+		{"../file.m4a", "/home/user/Music/playlists", "/home/user/Music/file.m4a"},
+		{"../tmp/file.m4a", "/home/user/Music/playlists", "/home/user/Music/tmp/file.m4a"},
+	}
+
+	for _, test := range tests {
+		c.Assert(CreateAbsPath(test.inputPath, test.inputPlaylistRoot), qt.Equals, test.expected)
+	}
+}
+
+func TestMoveRelativePath(t *testing.T) {
+	c := qt.New(t)
+	tests := []struct {
+		inputSource          string
+		inputCurPlaylistDir  string
+		inputDestPlaylistDir string
+		expected             string
+	}{
+		{"./file.m4a", "/home/user/Music", "/home/user/Music/Playlists", "../file.m4a"},
+		{"./file.m4a", "/home/user/Music", "/home/user/Playlists", "../Music/file.m4a"},
+		{"./file.m4a", "/home/user/Music/xmas-list", "/home/user/Music", "./xmas-list/file.m4a"},
+		{"./artist/album/file.m4a", "/home/user/Music/tmp", "/home/user/Music/Playlists", "../tmp/artist/album/file.m4a"},
+		{"../tmp/artist/album/file.m4a", "/home/user/Music/Playlists", "/home/user/Music/tmp", "./artist/album/file.m4a"},
+	}
+
+	for _, test := range tests {
+		c.Assert(MoveRelativePath(test.inputSource, test.inputCurPlaylistDir, test.inputDestPlaylistDir), qt.Equals, test.expected)
+	}
+}

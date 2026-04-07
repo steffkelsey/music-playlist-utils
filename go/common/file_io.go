@@ -10,25 +10,29 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
-func PromptAndMaybeSaveFile(path string, data []byte) error {
-	msg := `Save results at:
-%s
-`
-	fmt.Printf(msg, path)
+type FileMovedResult struct {
+	Source string `json:"source"`
+	Dest   string `json:"dest"`
+}
+
+func PromptAndMaybeSaveFile(path string, data []byte, message string) (bool, error) {
+	fmt.Println(message)
 	p := promptui.Prompt{
 		Label:     "Confirm",
 		IsConfirm: true,
 	}
 
+	// If NOT confirmed, p.Run() returns an error
 	_, err := p.Run()
 	if err != nil {
-		return nil
+		return false, nil
 	}
+	// Confirmed, code path continues
+
 	// create the file at the path
 	f, err := os.Create(path)
 	if err != nil {
-		fmt.Printf("Error creating file, %v\n", err)
-		return err
+		return false, err
 	}
 
 	// close the file when done
@@ -37,13 +41,10 @@ func PromptAndMaybeSaveFile(path string, data []byte) error {
 	// write to the file
 	_, err = f.Write(data)
 	if err != nil {
-		fmt.Printf("Error writing to file, %v\n", err)
-		return err
+		return false, err
 	}
 
-	fmt.Println("Report saved")
-
-	return nil
+	return true, nil
 }
 
 func FindFileNameNoOverWrite(path string) string {
@@ -130,4 +131,24 @@ func SwapRoot(path string, oldRoot string, newRoot string) string {
 func Sanitize(path *string) {
 	*path = strings.TrimPrefix(*path, "\"")
 	*path = strings.TrimSuffix(*path, "\"")
+}
+
+func FileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func CreateAbsPath(dest string, listRoot string) string {
+	return filepath.Join(listRoot, dest)
+}
+
+func MoveRelativePath(source string, curPlaylistDir string, destPlaylistDir string) string {
+	absMusicFilePath := CreateAbsPath(source, curPlaylistDir)
+	rel, _ := filepath.Rel(destPlaylistDir, absMusicFilePath)
+
+	if !strings.HasPrefix(rel, "../") {
+		rel = fmt.Sprintf("./%s", rel)
+	}
+
+	return rel
 }

@@ -8,12 +8,16 @@ import (
 const (
 	ParamDryRun    = "dry-run"
 	ParamInputDir  = "inputDir"
+	ParamInputFile = "input-file"
 	ParamOutputDir = "outputDir"
+	ParamRecursive = "recursive"
+	ParamValidate  = "validate"
 
 	ExtMp3 = ".mp3"
 	ExtMp4 = ".mp4"
 	ExtM4a = ".m4a"
 	ExtM4p = ".m4p"
+	ExtM3u = ".m3u"
 
 	Continue   = 0
 	ConfirmAll = 1
@@ -43,4 +47,15 @@ func IsEncryptedFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	// return if is an encrypted type
 	return ext == ExtM4p
+}
+
+// IsPlaylistFile determines if the given path points to a playlist
+// file based solely on file extension.
+//
+// A successful IsPlaylistFile returns true.
+func IsPlaylistFile(path string) bool {
+	// Get file extension
+	ext := strings.ToLower(filepath.Ext(path))
+	// return if is a playlist type
+	return ext == ExtM3u
 }

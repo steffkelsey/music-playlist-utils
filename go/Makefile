@@ -30,3 +30,7 @@ mod:
 .PHONY: gofmt
 gofmt:
 	gofmt -s -w `find . -type f -name '*.go'`
+
+.PHONY: lint
+lint:
+	golangci-lint run .
