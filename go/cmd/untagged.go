@@ -89,7 +89,7 @@ func findUntaggedFiles(rootPath string) error {
 
 func isFileUntagged(path string, info fs.FileInfo, results *common.WalkResults) error {
 	// if the file is encrypted, skip
-	if common.IsEncryptedFile(path) {
+	if common.IsEncryptedFile(path) || common.IsPlaylistFile(path) {
 		return nil
 	}
 	// Open the file to get more details

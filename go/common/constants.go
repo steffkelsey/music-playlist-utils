@@ -32,7 +32,7 @@ func IsMusicFile(path string) bool {
 	// Get file extension
 	ext := strings.ToLower(filepath.Ext(path))
 	// Check if it fits the type we care about
-	if ext == ExtMp3 || ext == ExtMp4 || ext == ExtM4a || ext == ExtM4p {
+	if ext == ExtMp3 || ext == ExtMp4 || ext == ExtM4a || ext == ExtM4p || ext == ExtM3u {
 		return true
 	}
 	return false
