@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -19,7 +22,7 @@ type validatePlaylistResult struct {
 	IsValid  bool     `json:"-"`
 	Path     string   `json:"path"`
 	Reason   string   `json:"reason"`
-	BadPaths []string `json:"badPaths"`
+	BadPaths []string `json:"badPaths,omitempty"`
 }
 
 type validatePlaylistsReport struct {
@@ -29,7 +32,7 @@ type validatePlaylistsReport struct {
 
 type movePlaylistResult struct {
 	Paths   []string                 `json:"-"`
-	Moved   []string                 `json:"moved"`
+	Moved   []common.FileMovedResult `json:"moved"`
 	Skipped []validatePlaylistResult `json:"skipped"`
 }
 
@@ -74,7 +77,7 @@ music-utils playlist -i "$HOME/Music" -r -v"`,
 		toValidate := make([]validatePlaylistResult, 0)
 		toMove := movePlaylistResult{
 			Paths:   make([]string, 0),
-			Moved:   make([]string, 0),
+			Moved:   make([]common.FileMovedResult, 0),
 			Skipped: make([]validatePlaylistResult, 0),
 		}
 
@@ -124,15 +127,16 @@ music-utils playlist -i "$HOME/Music" -r -v"`,
 			Invalid: make([]validatePlaylistResult, 0),
 		}
 		for _, v := range toValidate {
-			// TODO open the playlist file
-			// TODO read each line in the file
-			// TODO for each line, check if relative path or abs
-			// TODO if relative path, make it abs
-			// TODO for all path type, check that it exists
+			err := isPlaylistValid(&v, filepath.Dir(v.Path))
+			if err != nil {
+				return err
+			}
 			if v.IsValid {
 				validateResult.Valid = append(validateResult.Valid, v.Path)
+				toMove.Paths = append(toMove.Paths, v.Path)
 			} else {
 				validateResult.Invalid = append(validateResult.Invalid, v)
+				toMove.Skipped = append(toMove.Skipped, v)
 			}
 		}
 
@@ -144,7 +148,104 @@ music-utils playlist -i "$HOME/Music" -r -v"`,
 		}
 
 		for _, p := range toMove.Paths {
-			fmt.Printf("Moving %s...\n", p)
+			r := common.FileMovedResult{
+				Source: p,
+				Dest:   filepath.Join(outputDir, filepath.Base(p)),
+			}
+			newPaths, err := getPlaylistPaths(p, outputDir)
+			if err != nil {
+				toMove.Skipped = append(toMove.Skipped, validatePlaylistResult{
+					Path:   r.Source,
+					Reason: err.Error(),
+				})
+				continue
+			}
+			if !isDryRun {
+				// create the data to write into the file
+				newPathsStr := strings.Join(newPaths, "\n")
+				// check if the file already exists
+				if common.FileExists(r.Dest) {
+					// create a message for the overwrite prompt
+					msg := fmt.Sprintf(`File already exists!
+Overwrite playlist at:
+%s
+`, r.Dest)
+					// Prompt to overwrite
+					didSave, err := common.PromptAndMaybeSaveFile(r.Dest, []byte(newPathsStr), msg)
+					if err != nil {
+						toMove.Skipped = append(toMove.Skipped, validatePlaylistResult{
+							Path:   r.Source,
+							Reason: fmt.Sprintf("Error occurred when saving: %s", err),
+						})
+						continue
+					}
+					if !didSave {
+						toMove.Skipped = append(toMove.Skipped, validatePlaylistResult{
+							Path:   r.Source,
+							Reason: "User canceled. File already exists",
+						})
+						continue
+					}
+				} else {
+					f, err := os.Create(r.Dest)
+					if err != nil {
+						toMove.Skipped = append(toMove.Skipped, validatePlaylistResult{
+							Path:   r.Source,
+							Reason: err.Error(),
+						})
+						continue
+					}
+
+					// close the file when done
+					defer f.Close()
+
+					// write to the file
+					_, err = f.WriteString(newPathsStr)
+					if err != nil {
+						toMove.Skipped = append(toMove.Skipped, validatePlaylistResult{
+							Path:   r.Source,
+							Reason: err.Error(),
+						})
+						continue
+					}
+				}
+				fmt.Printf("+ %s\n", r.Dest)
+			}
+			toMove.Moved = append(toMove.Moved, r)
+		}
+
+		if isDryRun {
+			j, _ := json.Marshal(&toMove)
+			fmt.Println(string(j))
+			return nil
+		}
+
+		// validate the files we just moved
+		for _, m := range toMove.Moved {
+			v := validatePlaylistResult{
+				IsValid:  true,
+				Path:     m.Dest,
+				Reason:   "",
+				BadPaths: make([]string, 0),
+			}
+			err := isPlaylistValid(&v, filepath.Dir(v.Path))
+			if err != nil {
+				return err
+			}
+			if v.IsValid {
+				// TODO delete the old files if all is good
+				// print to user that we deleted the file
+				fmt.Printf("- %s\n", m.Source)
+			} else {
+				fmt.Printf("VALIDATION FAILED: %s\n", m.Dest)
+				// delete the new file
+				err := os.Remove(m.Dest)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("- %s\n", m.Dest)
+				toMove.Skipped = append(toMove.Skipped, v)
+			}
 		}
 
 		return nil
@@ -168,4 +269,63 @@ func findPlaylistFile(path string, info fs.FileInfo, results *common.WalkResults
 	results.Files = append(results.Files, path)
 	results.Count++
 	return nil
+}
+
+func isPlaylistValid(r *validatePlaylistResult, listDir string) error {
+	file, err := os.Open(r.Path)
+	if err != nil {
+		r.Reason = "Could not open file"
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		maybeValidMusicFilePath := scanner.Text()
+		if !filepath.IsAbs(maybeValidMusicFilePath) {
+			maybeValidMusicFilePath = common.CreateAbsPath(maybeValidMusicFilePath, listDir)
+		}
+		// for all path type, check that it exists
+		if !common.FileExists(maybeValidMusicFilePath) {
+			r.BadPaths = append(r.BadPaths, maybeValidMusicFilePath)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		r.Reason = "Could not scan the lines"
+		return err
+	}
+
+	if len(r.BadPaths) > 0 {
+		r.Reason = "One or more bad paths"
+	}
+	r.IsValid = len(r.BadPaths) == 0
+	return nil
+}
+
+func getPlaylistPaths(sourcePlPath string, destDir string) ([]string, error) {
+	newPaths := make([]string, 0)
+	file, err := os.Open(sourcePlPath)
+	if err != nil {
+		return newPaths, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		p := scanner.Text()
+		// create the new path
+		if !filepath.IsAbs(p) {
+			p = common.MoveRelativePath(p, filepath.Dir(sourcePlPath), destDir)
+		}
+		newPaths = append(newPaths, p)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return newPaths, err
+	}
+
+	return newPaths, nil
 }

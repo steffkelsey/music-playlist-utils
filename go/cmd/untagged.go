@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"strings"
 
 	"github.com/dhowden/tag"
 
@@ -13,6 +12,18 @@ import (
 
 	"music-utils/common"
 )
+
+type untaggedResult struct {
+	Path    string   `json:"path"`
+	Reasons []string `json:"reasons"`
+}
+
+type untaggedReport struct {
+	CopiesCreated []string         `json:"copiesCreated"`
+	Untagged      []untaggedResult `json:"untagged"`
+}
+
+var untaggedReportResult untaggedReport
 
 var untaggedCmd = &cobra.Command{
 	Use:   "untagged",
@@ -51,14 +62,17 @@ func init() {
 }
 
 func findUntaggedFiles(rootPath string) error {
+	untaggedReportResult = untaggedReport{
+		CopiesCreated: make([]string, 0),
+		Untagged:      make([]untaggedResult, 0),
+	}
 	res, err := common.WalkAllMusicFiles(rootPath, isFileUntagged)
 	if err != nil {
 		return err
 	}
 	// go through the files and copy each one to the target destination
 	// create the report for each
-	final := make([]string, len(res.Files))
-	for i, path := range res.Files {
+	for _, path := range res.Files {
 		common.Sanitize(&path)
 		newPath := common.SwapRoot(path, rootPath, outputDir)
 		if !isDryRun {
@@ -68,19 +82,14 @@ func findUntaggedFiles(rootPath string) error {
 				fmt.Printf("error copying file, err: %v\n", err)
 				return err
 			}
+			// Print showing the file being created in the new location
 			fmt.Printf("+ %s\n", newPath)
 		}
 		// save for the report
-		final[i] = newPath
+		untaggedReportResult.CopiesCreated = append(untaggedReportResult.CopiesCreated, newPath)
 	}
-	var sb strings.Builder
-	sb.WriteString(`{"untagged": `)
-	j, _ := json.Marshal(&final)
-	sb.Write(j)
-	// dump the string
-	jsonString := sb.String()
-	// close the object
-	jsonString += "}"
+	j, _ := json.Marshal(&untaggedReportResult)
+	jsonString := string(j)
 	if isDryRun {
 		fmt.Println(jsonString)
 	}
@@ -88,44 +97,57 @@ func findUntaggedFiles(rootPath string) error {
 }
 
 func isFileUntagged(path string, info fs.FileInfo, results *common.WalkResults) error {
-	// if the file is encrypted, skip
+	// skip if the file is encrypted or a playlist
 	if common.IsEncryptedFile(path) || common.IsPlaylistFile(path) {
 		return nil
+	}
+	r := untaggedResult{
+		Path:    path,
+		Reasons: make([]string, 0),
 	}
 	// Open the file to get more details
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Printf("  Error opening file: %v\n", err)
+		r.Reasons = append(r.Reasons, "Could not open file")
+		untaggedReportResult.Untagged = append(untaggedReportResult.Untagged, r)
+		results.Files = append(results.Files, path)
 	} else {
 		defer file.Close()
 
 		// Use dhowden/tag to read metadata
 		m, err := tag.ReadFrom(file)
 		if err != nil {
+			r.Reasons = append(r.Reasons, "Could not read tags")
+			untaggedReportResult.Untagged = append(untaggedReportResult.Untagged, r)
 			results.Files = append(results.Files, path)
 			results.Count++
 		} else {
 			isTagGood := true
 			// Must have Album, Title, Track, Artist
 			if m.Album() == "" {
+				r.Reasons = append(r.Reasons, "Missing Album tag")
 				isTagGood = false
 			}
 
 			if m.Title() == "" {
+				r.Reasons = append(r.Reasons, "Missing Title tag")
 				isTagGood = false
 			}
 
 			if m.Artist() == "" {
+				r.Reasons = append(r.Reasons, "Missing Artist tag")
 				isTagGood = false
 			}
 
 			trackNum, _ := m.Track()
 			if trackNum == 0 {
+				r.Reasons = append(r.Reasons, "Missing Track Number tag")
 				isTagGood = false
 			}
 
 			if !isTagGood {
 				results.Files = append(results.Files, path)
+				untaggedReportResult.Untagged = append(untaggedReportResult.Untagged, r)
 				results.Count++
 			}
 		}

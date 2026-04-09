@@ -24,7 +24,9 @@ var duplicatesCmd = &cobra.Command{
 	Use:   "duplicates",
 	Short: "Finds duplicate music files",
 	Long: `Finds duplicate music files in the given
-input folder.`,
+input folder. To find duplicates recursively in ~/Music/tmp and save the report in ~/:
+
+music-utils duplicates -i $HOME/Music/tmp -o $HOME`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 		// Verify that input dir exists
