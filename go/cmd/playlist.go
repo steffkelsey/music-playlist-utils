@@ -233,7 +233,11 @@ Overwrite playlist at:
 				return err
 			}
 			if v.IsValid {
-				// TODO delete the old files if all is good
+				// delete the old file
+				err := os.Remove(m.Source)
+				if err != nil {
+					return err
+				}
 				// print to user that we deleted the file
 				fmt.Printf("- %s\n", m.Source)
 			} else {

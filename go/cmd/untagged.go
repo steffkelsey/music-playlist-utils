@@ -141,7 +141,7 @@ func isFileUntagged(path string, info fs.FileInfo, results *common.WalkResults) 
 
 			trackNum, _ := m.Track()
 			if trackNum == 0 {
-				r.Reasons = append(r.Reasons, "Missing Track Number tag")
+				r.Reasons = append(r.Reasons, "Missing TrackNumber tag")
 				isTagGood = false
 			}
 
