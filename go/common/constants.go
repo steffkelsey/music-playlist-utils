@@ -7,6 +7,7 @@ import (
 
 const (
 	ParamDryRun    = "dry-run"
+	ParamExport    = "export"
 	ParamInputDir  = "inputDir"
 	ParamInputFile = "input-file"
 	ParamOutputDir = "outputDir"
