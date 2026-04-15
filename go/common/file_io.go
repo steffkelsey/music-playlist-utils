@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -151,4 +152,17 @@ func MoveRelativePath(source string, curPlaylistDir string, destPlaylistDir stri
 	}
 
 	return rel
+}
+
+func RemoveEmptyDirectories(root string) error {
+	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			// os.Remove only deletes if the directory is empty
+			os.Remove(path)
+		}
+		return nil
+	})
 }
