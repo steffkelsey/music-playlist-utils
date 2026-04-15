@@ -13,7 +13,7 @@ func FlagDirectoryExists(flagDir string) (string, error) {
 	flagDir = os.ExpandEnv(flagDir)
 	_, err := os.Stat(flagDir)
 	if err != nil {
-		return "", fmt.Errorf("directory does not exist at %s", flagDir)
+		return "", fmt.Errorf("file or directory does not exist at %s", flagDir)
 	}
 	return flagDir, nil
 }

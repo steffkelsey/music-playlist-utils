@@ -1,39 +1,60 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"music-utils/common"
 )
 
-// repairCmd represents the repair command
+var configFileOrDir string
+
 var repairCmd = &cobra.Command{
 	Use:   "repair",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Repairs broken links in one or more playlists",
+	Long: `
+Repairs broklen links in one or more playlists using
+input from one or more reports that have moved file results.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
+To repair one playlist using one report:
+
+music-utils playlist repair --input-file $HOME/Music/playlist.m3u -c $HOME/Music/report.json
+
+To repair one playlist using all reports found in one directory (non-recursive):
+
+music-utils playlist repair --input-file $HOME/Music/playlist.m3u -c $HOME/Music/reports
+
+To repair all playlist in the input directory using one report:
+
+music-utils playlist repair -i $HOME/Music -c $HOME/Music/report.json
+
+To repair all playlist recursively in the input directory and all subs using one report:
+
+music-utils playlist repair -r -i $HOME/Music -c $HOME/Music/report.json
+`,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		var err error
+		// Verify that input dir exists (also expands the path)
+		inputDir, err = common.FlagDirectoryExists(inputDir)
+		if err != nil {
+			return err
+		}
+		// Verify the config file or directory exists (also expands the path)
+		configFileOrDir, err = common.FlagDirectoryExists(configFileOrDir)
+		if err != nil {
+			return err
+		}
+		return nil
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("repair called")
+		return nil
 	},
 }
 
 func init() {
 	playlistCmd.AddCommand(repairCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// repairCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// repairCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	repairCmd.Flags().StringVarP(&configFileOrDir, "config-path", "c", "", "Config file or directory containing multiple")
 }
