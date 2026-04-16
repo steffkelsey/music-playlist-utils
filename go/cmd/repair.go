@@ -154,8 +154,18 @@ music-utils playlist repair -r -i $HOME/Music -c $HOME/Music/report.json
 			return nil
 		}
 
-		// validate all repaired playlists
-		v = append(make([]validatePlaylistResult, 0), validateResults.Invalid...)
+		// reset the validate results on the invalid playlists to run
+		// validation again
+		v = make([]validatePlaylistResult, 0)
+		for _, vr := range validateResults.Invalid {
+			v = append(v, validatePlaylistResult{
+				IsValid:  true,
+				Path:     vr.Path,
+				Reason:   "",
+				BadPaths: make([]string, 0),
+			})
+		}
+		// validate all maybe repaired playlists
 		validateResults, err = validateAllPlaylists(v)
 		if err != nil {
 			return err
@@ -164,6 +174,9 @@ music-utils playlist repair -r -i $HOME/Music -c $HOME/Music/report.json
 		results.Repaired = append(results.Repaired, validateResults.Valid...)
 		results.Failed = append(results.Failed, validateResults.Invalid...)
 
+		// print the json repair report
+		j, _ := json.Marshal(&results)
+		fmt.Println(string(j))
 		return nil
 	},
 }
