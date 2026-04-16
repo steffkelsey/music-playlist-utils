@@ -144,8 +144,13 @@ func CreateAbsPath(dest string, listRoot string) string {
 }
 
 func MoveRelativePath(source string, curPlaylistDir string, destPlaylistDir string) string {
-	absMusicFilePath := CreateAbsPath(source, curPlaylistDir)
-	rel, _ := filepath.Rel(destPlaylistDir, absMusicFilePath)
+	var rel string
+	if !filepath.IsAbs(source) {
+		absMusicFilePath := CreateAbsPath(source, curPlaylistDir)
+		rel, _ = filepath.Rel(destPlaylistDir, absMusicFilePath)
+	} else {
+		rel, _ = filepath.Rel(destPlaylistDir, source)
+	}
 
 	if !strings.HasPrefix(rel, "../") {
 		rel = fmt.Sprintf("./%s", rel)

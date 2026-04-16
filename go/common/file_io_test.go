@@ -57,6 +57,8 @@ func TestMoveRelativePath(t *testing.T) {
 		{"./file.m4a", "/home/user/Music/xmas-list", "/home/user/Music", "./xmas-list/file.m4a"},
 		{"./artist/album/file.m4a", "/home/user/Music/tmp", "/home/user/Music/Playlists", "../tmp/artist/album/file.m4a"},
 		{"../tmp/artist/album/file.m4a", "/home/user/Music/Playlists", "/home/user/Music/tmp", "./artist/album/file.m4a"},
+		{"/home/user/Music/tmp/artist/album/file.m4a", "/home/user/Music/Playlists", "/home/user/Music/tmp", "./artist/album/file.m4a"},
+		{"/home/user/Music/tmp/artist/album/file.m4a", "/home/user/Music/tmp", "/home/user/Music/tmp", "./artist/album/file.m4a"},
 	}
 
 	for _, test := range tests {
