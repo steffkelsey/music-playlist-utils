@@ -33,6 +33,11 @@ Create browser.json:
 ytmusic browser
 ```
 
+Set the path to the browser.json as an env variable
+```bash
+export BROWSER_JSON=/path/to/browser.json
+```
+
 Then in the script:  
 ```Python
 from ytmusicapi import YTMusic
@@ -41,7 +46,7 @@ ytmusic = YTMusic("browser.json")
 
 To search for an album (The New Danger by Mos Def)
 ```Python
-ytmusic.search("The New Danger", "album")
+ytmusic.search("The New Danger", "albums")
 ```
 
 Sample output: 
@@ -99,3 +104,4 @@ Plug the `playlistId` into yt-dlp:
 ```bash
 yt-dlp --cookies ./cookies.txt -P "~/Music/dl" -o "%(album)s/%(autonumber)02d - %(track)s.%(ext)s" -x --audio-format mp3 --add-metadata "https://music.youtube.com/playlist?list=OLAK5uy_n--e-O7IGvP2rdihfQdt3uaSmHC1FjeXE"
 ```
+

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"unsafe"
 
@@ -39,11 +40,12 @@ func GetDuration(path string) (float64, error) {
 
 func FmtAlbumMatch(a1, a2 AlbumInfo, score float64, success bool) AlbumMatch {
 	return AlbumMatch{
-		Score:      score,
-		Titles:     fmt.Sprintf("%s | %s", a1.Album, a2.Album),
-		Artists:    fmt.Sprintf("%s | %s", a1.Artist, a2.Artist),
-		TotalDiscs: fmt.Sprintf("%d | %d", a1.TotalDiscs, a2.TotalDiscs),
-		Success:    success,
+		Score:       score,
+		Titles:      fmt.Sprintf("%s | %s", a1.Album, a2.Album),
+		Artists:     fmt.Sprintf("%s | %s", a1.Artist, a2.Artist),
+		TotalDiscs:  fmt.Sprintf("%d | %d", a1.TotalDiscs, a2.TotalDiscs),
+		TotalTracks: fmt.Sprintf("%d | %d", a1.TotalTracks, a2.TotalTracks),
+		Success:     success,
 	}
 }
 
@@ -62,4 +64,11 @@ func FmtTrackMatch(t1, t2 TrackInfo, score float64, success bool) TrackMatch {
 		TotalDiscs:   fmt.Sprintf("%d | %d", t1.TotalDiscs, t2.TotalDiscs),
 		Success:      success,
 	}
+}
+
+// StripToughToMatchChars removes different versions of single
+// and double quotes. Best used when making map keys
+func StripToughToMatchChars(s string) string {
+	re := regexp.MustCompile(`(\p{Pi}|\p{Pf}|'|"){1}`)
+	return string(re.ReplaceAll([]byte(s), []byte("")))
 }

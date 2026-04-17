@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -79,7 +80,15 @@ func organizeMusicFiles() error {
 		// but we're organizing the files in place and the outputDir
 		// is used only for generating the report.
 		m.Dest = filepath.Join(inputDir, m.Dest)
-		organizedReportResult.Moved[i].Dest = m.Dest
+		// if the Source == Dest, then we should NOT do anything
+		// OR we risk deleting the track if the code path continues
+		if strings.EqualFold(m.Dest, m.Source) {
+			// update the report by removing this file from Moved
+			organizedReportResult.Moved = append(organizedReportResult.Moved[:i], organizedReportResult.Moved[i+1:]...)
+			continue
+		} else {
+			organizedReportResult.Moved[i].Dest = m.Dest
+		}
 		if !isDryRun {
 			// TODO any overwrite warnings?
 			// copy Source -> Dest (function handles creation of directories etc)
@@ -154,8 +163,12 @@ func createDestinationFromTags(path string, info fs.FileInfo, results *common.Wa
 		// same album are in the same folder for Jellyfin (for serving)
 		// or Picard (for tag editing).
 		// So we are going to start with:
-		// ./[Album Artist][Album]/[Track Number] - [Artist] - [Title].ext
-		dest := fmt.Sprintf("./%s/%s/%02d - %s - %s%s", track.AlbumArtist, track.Album, track.TrackNumber, track.Artist, track.Title, filepath.Ext(path))
+		// ./[Album Artist]/[Album]/[Track Number] - [Artist] - [Title].ext
+		albumArtist := strings.ReplaceAll(track.AlbumArtist, "/", "_")
+		album := strings.ReplaceAll(track.Album, "/", "_")
+		filename := strings.ReplaceAll(fmt.Sprintf("%02d - %s - %s%s", track.TrackNumber, track.Artist, track.Title, filepath.Ext(path)), "/", "_")
+		dest := fmt.Sprintf("./%s/%s/%s", albumArtist, album, filename)
+		// replace strictly forbidden characters in the filename
 		m := common.FileMovedResult{
 			Source: path,
 			Dest:   dest,

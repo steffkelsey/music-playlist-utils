@@ -10,15 +10,36 @@ import (
 )
 
 type AlbumInfo struct {
-	Album      string      `json:"album"`
-	Artist     string      `json:"artist"`
-	Tracks     []TrackInfo `json:"tracks"`
-	TotalDiscs int         `json:"totalDiscs"`
+	Album         string      `json:"album"`
+	Artist        string      `json:"artist"`
+	Tracks        []TrackInfo `json:"tracks"`
+	TotalDiscs    int         `json:"totalDiscs"`
+	TotalTracks   int         `json:"totalTracks"`
+	AccurateCount bool        `json:"accurateCount"`
+}
+
+func (a *AlbumInfo) FlattenTrackNumbers() {
+	// map for discNumber to totalTracks for that disc
+	m := make(map[int]int)
+	// iterate over the tracks
+	for index, t := range a.Tracks {
+		// save the total tracks for this disc number if needed
+		if _, ok := m[t.DiscNumber]; !ok {
+			m[t.DiscNumber] = t.TotalTracks
+		}
+		n := t.TrackNumber
+		for i := range t.DiscNumber {
+			if tot, ok := m[i]; ok {
+				n += tot
+			}
+		}
+		a.Tracks[index].TrackNumber = n
+	}
 }
 
 // This will only work on albums where the Tracks are sorted
 // by disc number and then track number
-func (a AlbumInfo) IsComplete() bool {
+func (a *AlbumInfo) IsComplete() bool {
 	for i := 1; i <= a.TotalDiscs; i++ {
 		if !a.IsDiscComplete(i) {
 			return false
@@ -27,12 +48,34 @@ func (a AlbumInfo) IsComplete() bool {
 	return true
 }
 
+func (a *AlbumInfo) CalcTotalTracks() bool {
+	trackCount := 0
+	foundAllDiscs := true
+	// For the total number of possible discs
+	for i := 1; i <= a.TotalDiscs; i++ {
+		j, found := slices.BinarySearchFunc(a.Tracks,
+			TrackInfo{DiscNumber: i},
+			CmpTrackInfoDiscNum,
+		)
+		if found {
+			// get the totalTracks for this disc off of the returned track index
+			trackCount += a.Tracks[j].TotalTracks
+		} else {
+			foundAllDiscs = false
+		}
+	}
+	// sum of totalTracks for each disc is the album totaltracks
+	a.TotalTracks = trackCount
+	a.AccurateCount = foundAllDiscs
+	return foundAllDiscs
+}
+
 // This will only work on albums where the Tracks are sorted
 // by disc number and then track number
-func (a AlbumInfo) IsDiscComplete(n int) bool {
+func (a *AlbumInfo) IsDiscComplete(n int) bool {
 	i, found := slices.BinarySearchFunc(a.Tracks,
-		TrackInfo{DiscNumber: n, TrackNumber: 1},
-		CmpTrackInfoDiscAndTrackNum,
+		TrackInfo{DiscNumber: n},
+		CmpTrackInfoDiscNum,
 	)
 	if found {
 		// we now have the starting track index for this disc
@@ -41,8 +84,8 @@ func (a AlbumInfo) IsDiscComplete(n int) bool {
 		// if not, we need to know the index of the first track of the next disc
 		if n < a.TotalDiscs {
 			j, f := slices.BinarySearchFunc(a.Tracks,
-				TrackInfo{DiscNumber: n + 1, TrackNumber: 1},
-				CmpTrackInfoDiscAndTrackNum,
+				TrackInfo{DiscNumber: n + 1},
+				CmpTrackInfoDiscNum,
 			)
 			if f {
 				return a.Tracks[i].TotalTracks == j-i
@@ -55,8 +98,8 @@ func (a AlbumInfo) IsDiscComplete(n int) bool {
 	return false
 }
 
-func (a AlbumInfo) GetKey() string {
-	return strings.ToLower(fmt.Sprintf("%s|%s", a.Artist, a.Album))
+func (a *AlbumInfo) GetKey() string {
+	return StripToughToMatchChars(strings.ToLower(fmt.Sprintf("%s|%s", a.Artist, a.Album)))
 }
 
 type TrackInfo struct {
@@ -73,11 +116,11 @@ type TrackInfo struct {
 }
 
 func (t TrackInfo) GetAlbumKey() string {
-	return strings.ToLower(fmt.Sprintf("%s|%s", t.AlbumArtist, t.Album))
+	return StripToughToMatchChars(strings.ToLower(fmt.Sprintf("%s|%s", t.AlbumArtist, t.Album)))
 }
 
 func (t TrackInfo) GetKey() string {
-	return strings.ToLower(fmt.Sprintf("%s|%s", t.Artist, t.Album))
+	return StripToughToMatchChars(strings.ToLower(fmt.Sprintf("%s|%s", t.Artist, t.Title)))
 }
 
 type WalkResults struct {

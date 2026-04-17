@@ -6,6 +6,155 @@ import (
 	qt "github.com/frankban/quicktest"
 )
 
+func TestAlbumFlattenTrackNumbers(t *testing.T) {
+	c := qt.New(t)
+	tests := []struct {
+		input    AlbumInfo
+		expected []TrackInfo
+	}{
+		{
+			AlbumInfo{
+				TotalDiscs:  1,
+				TotalTracks: 1,
+				Tracks: []TrackInfo{
+					{
+						DiscNumber:  1,
+						TotalDiscs:  1,
+						TrackNumber: 1,
+						TotalTracks: 1,
+					},
+				},
+			},
+			[]TrackInfo{
+				{
+					DiscNumber:  1,
+					TotalDiscs:  1,
+					TrackNumber: 1,
+					TotalTracks: 1,
+				},
+			},
+		},
+		{
+			AlbumInfo{
+				TotalDiscs:  2,
+				TotalTracks: 2,
+				Tracks: []TrackInfo{
+					{
+						DiscNumber:  1,
+						TotalDiscs:  2,
+						TrackNumber: 1,
+						TotalTracks: 1,
+					},
+					{
+						DiscNumber:  2,
+						TotalDiscs:  2,
+						TrackNumber: 1,
+						TotalTracks: 1,
+					},
+				},
+			},
+			[]TrackInfo{
+				{
+					DiscNumber:  1,
+					TotalDiscs:  2,
+					TrackNumber: 1,
+					TotalTracks: 1,
+				},
+				{
+					DiscNumber:  2,
+					TotalDiscs:  2,
+					TrackNumber: 2,
+					TotalTracks: 1,
+				},
+			},
+		},
+		{
+			AlbumInfo{
+				TotalDiscs:  0,
+				TotalTracks: 2,
+				Tracks: []TrackInfo{
+					{
+						DiscNumber:  0,
+						TotalDiscs:  0,
+						TrackNumber: 1,
+						TotalTracks: 0,
+					},
+					{
+						DiscNumber:  0,
+						TotalDiscs:  0,
+						TrackNumber: 2,
+						TotalTracks: 0,
+					},
+				},
+			},
+			[]TrackInfo{
+				{
+					DiscNumber:  0,
+					TotalDiscs:  0,
+					TrackNumber: 1,
+					TotalTracks: 0,
+				},
+				{
+					DiscNumber:  0,
+					TotalDiscs:  0,
+					TrackNumber: 2,
+					TotalTracks: 0,
+				},
+			},
+		},
+		{
+			AlbumInfo{
+				TotalDiscs:  3,
+				TotalTracks: 12,
+				Tracks: []TrackInfo{
+					{
+						DiscNumber:  1,
+						TotalDiscs:  3,
+						TrackNumber: 2,
+						TotalTracks: 3,
+					},
+					{
+						DiscNumber:  2,
+						TotalDiscs:  3,
+						TrackNumber: 2,
+						TotalTracks: 4,
+					},
+					{
+						DiscNumber:  3,
+						TotalDiscs:  3,
+						TrackNumber: 5,
+						TotalTracks: 5,
+					},
+				},
+			},
+			[]TrackInfo{
+				{
+					DiscNumber:  1,
+					TotalDiscs:  3,
+					TrackNumber: 2,
+					TotalTracks: 3,
+				},
+				{
+					DiscNumber:  2,
+					TotalDiscs:  3,
+					TrackNumber: 5,
+					TotalTracks: 4,
+				},
+				{
+					DiscNumber:  3,
+					TotalDiscs:  3,
+					TrackNumber: 12,
+					TotalTracks: 5,
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		test.input.FlattenTrackNumbers()
+		c.Assert(test.input.Tracks, qt.DeepEquals, test.expected)
+	}
+}
+
 func TestAlbumIsComplete(t *testing.T) {
 	c := qt.New(t)
 	tests := []struct {

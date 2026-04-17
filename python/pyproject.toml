@@ -1,0 +1,12 @@
+[project]
+dynamic = ["version"]
+name = "pymusic-utils"
+dependencies = [
+  "typer==0.24.1",
+  "typing_extensions==4.15.0",
+  "annotated-doc==0.0.4",
+]
+
+[project.scripts]
+pymusicutils = "pymusicutils.cli:app"
+
