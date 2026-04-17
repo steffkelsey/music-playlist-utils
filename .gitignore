@@ -38,3 +38,5 @@ music-utils
 .idea/
 *.iml
 
+cookies.txt
+browser.json
