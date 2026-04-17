@@ -80,5 +80,5 @@ Album and artist / album artist will be pulled from exiftool
 
 Plug the `playlistId` into yt-dlp:  
 ```bash
-yt-dlp --cookies ./cookies.txt -P "~/Music/dl" -o "%(album)s/%(autonumber)02d - %(track)s.%(ext)s" -x --audio-format mp3 --add-metadata "https://music.youtube.com/playlist?list=OLAK5uy_mZUV3s95o0wppzvcBghh6qHdaaLZGcE9o"
+yt-dlp --cookies ./cookies.txt -P "~/Music/dl" -o "%(album)s/%(autonumber)02d - %(track)s.%(ext)s" -x --audio-format mp3 --add-metadata "https://music.youtube.com/playlist?list=OLAK5uy_n--e-O7IGvP2rdihfQdt3uaSmHC1FjeXE"
 ```
