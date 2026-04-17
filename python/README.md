@@ -6,6 +6,23 @@ https://exiftool.org/install.html#Unix
 
 ## Usage
 
+Call without installing (from ./src directory):  
+```bash
+python -m pymusicutils
+```
+
+## Installation
+
+From this folder (using .venv):  
+```bash
+pipx install .
+```
+
+After install, `pymusicutils` is installed in its own env. Can call without 
+sourcing .venv!
+
+## Setup
+
 To Setup ytmusic api
 
 The oauth flow is broken, so login via Firefox, copy request headers
