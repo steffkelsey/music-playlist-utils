@@ -51,11 +51,10 @@ def pymsctl(
     ytmusic = YTMusic(browser_json)
 
     # iterate over the albums
-    found = False
     for a in exif_report["albums"]:
         matched = False
         if not dry_run:
-            print(f"matching {a['artist']} - {a['album']}...")
+            print(f"...matching... '{a['artist']}' - '{a['album']}'")
         # TODO is there a fuzzy match on the album title?
         # TODO is there a fuzzy match with the album artists?
         #print(f"album: {a["album"]}")
@@ -68,24 +67,31 @@ def pymsctl(
             if r['resultType'] != 'album':
                 continue
             # does the title match exactly?
-            if r['title'] == a['album']:
-                found = True
-            else:
-                continue
+            if r['title'].lower() != a['album'].lower():
+                p = percentWordMatch(r['title'].lower(), a['album'].lower())
+                if p < 0.6:
+                    print(f"title does not match '{r['artists'][0]['name']}' - '{r['title']}'")
+                    continue
             # get the complete album info by querying with the browseId
             yt_album = ytmusic.get_album(r['browseId'])
             # check that the total tracks match
             if a['totalTracks'] == str(yt_album['trackCount']):
+                # check that the artist matches for the album
+
                 matched = True
+                print(f"MATCHED: {yt_album['title']}")
+                break
+            else:
+                print(f"total tracks did not match: {yt_album['trackCount']}, '{yt_album['artists'][0]['name']}' - '{yt_album['title']}' != {a['totalTracks']}")
+                continue
                 
             playlistIdsToDownload.append(yt_album['audioPlaylistId'])
-        if found:
-            break
         if not matched:
             skipped.append(a)
+            if not dry_run:
+                print(f"SKIPPED {a['artist']} - {a['album']}")
         # pause to prevent 429 request overload error from Youtube API
         time.sleep(1)
-
 
     if dry_run:
         report = {}
@@ -100,4 +106,15 @@ def pymsctl(
     # iterate over each yt_playlist and download with yt-dlp
     #ret_val = subprocess.call("yt-dlp --help", shell=True)
 
-
+def percentWordMatch(p1, p2):
+    p1Words = p1.split()
+    p1MeaningfulWordMap = {}
+    for w in p1Words:
+        if len(w) > 0:
+            p1MeaningfulWordMap[w] = True
+    p2Words = p2.split()
+    matches = 0
+    for w in p2Words:
+        if len(w) > 0 and p1MeaningfulWordMap.get(w):
+            matches += 1
+    return matches/len(p1MeaningfulWordMap)
