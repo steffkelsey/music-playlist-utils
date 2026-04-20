@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/alitto/pond/v2"
@@ -20,9 +21,10 @@ type exifReport struct {
 }
 
 type albumInfo struct {
-	Album  string      `json:"album"`
-	Artist string      `json:"artist"`
-	Tracks []trackInfo `json:"tracks"`
+	Album       string      `json:"album"`
+	Artist      string      `json:"artist"`
+	Tracks      []trackInfo `json:"tracks"`
+	TotalTracks string      `json:"totalTracks"`
 }
 
 type trackInfo struct {
@@ -131,19 +133,27 @@ func findExifData() error {
 		m[p] = ti
 
 		// see if the album exists in the Albums slice
-		i, ok := albumNameToSliceIndexMap[t[0].Album]
+		i, ok := albumNameToSliceIndexMap[ti.Album]
 		if ok {
 			// add the trackInfo to the albumInfo
 			results.Albums[i].Tracks = append(results.Albums[i].Tracks, ti)
+			// check that the album.totalTracks still looks good
+			curAlbumTotalTracksInt, _ := strconv.Atoi(results.Albums[i].TotalTracks)
+			curTrackTotalTracksInt, _ := strconv.Atoi(ti.TotalTracks)
+			// Default to the biggest one
+			if curAlbumTotalTracksInt < curTrackTotalTracksInt {
+				results.Albums[i].TotalTracks = ti.TotalTracks
+			}
 		} else {
 			// save the index where we added the album into the name map
-			albumNameToSliceIndexMap[t[0].Album] = len(results.Albums)
+			albumNameToSliceIndexMap[ti.Album] = len(results.Albums)
 			tr := []trackInfo{ti}
 			// create the new album in the results
 			results.Albums = append(results.Albums, albumInfo{
-				Album:  t[0].Album,
-				Artist: t[0].AlbumArtist,
-				Tracks: tr,
+				Album:       ti.Album,
+				Artist:      t[0].AlbumArtist,
+				TotalTracks: ti.TotalTracks,
+				Tracks:      tr,
 			})
 		}
 
