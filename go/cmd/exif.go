@@ -6,10 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/alitto/pond/v2"
 	"github.com/spf13/cobra"
@@ -18,8 +16,23 @@ import (
 )
 
 type exifReport struct {
-	Files  map[string]common.TrackInfo `json:"files"`
-	Albums []common.AlbumInfo          `json:"albums"`
+	Files  []map[string]trackInfo `json:"files"`
+	Albums []albumInfo            `json:"albums"`
+}
+
+type albumInfo struct {
+	Album       string      `json:"album"`
+	Artist      string      `json:"artist"`
+	Tracks      []trackInfo `json:"tracks"`
+	TotalTracks string      `json:"totalTracks"`
+}
+
+type trackInfo struct {
+	Title       string `json:"title"`
+	Artist      string `json:"artist"`
+	TrackNumber string `json:"trackNumber"`
+	TotalTracks string `json:"totalTracks"`
+	Album       string `json:"album"`
 }
 
 type exifTrack struct {
@@ -27,9 +40,7 @@ type exifTrack struct {
 	Artist      string `json:"Artist"`
 	AlbumArtist string `json:"AlbumArtist"`
 	Album       string `json:"Album"`
-	DiscNumber  any    `json:"DiskNumber"`
 	TrackNumber any    `json:"TrackNumber"`
-	Duration    string `json:"Duration"`
 }
 
 var exifCmd = &cobra.Command{
@@ -80,8 +91,8 @@ func findExifData() error {
 
 	// create a var to hold results
 	results := exifReport{
-		Files:  make(map[string]common.TrackInfo),
-		Albums: make([]common.AlbumInfo, 0),
+		Files:  make([]map[string]trackInfo, 0),
+		Albums: make([]albumInfo, 0),
 	}
 
 	// Create a pool with a result type of string
@@ -115,40 +126,43 @@ func findExifData() error {
 			return err
 		}
 
-		// create TrackInfo from the exif data
+		// create the map entry for the path of the encrypted file
+		m := make(map[string]trackInfo)
+		// add the metadata to the trackInfo at m[p]
 		ti := exifTrackToTrackInfo(t[0])
-		results.Files[p] = ti
+		m[p] = ti
 
 		// see if the album exists in the Albums slice
-		i, ok := albumNameToSliceIndexMap[ti.GetAlbumKey()]
+		i, ok := albumNameToSliceIndexMap[ti.Album]
 		if ok {
-			// add the TrackInfo to the AlbumInfo
+			// add the trackInfo to the albumInfo
 			results.Albums[i].Tracks = append(results.Albums[i].Tracks, ti)
-			// Default to the biggest one for total discs
-			if results.Albums[i].TotalDiscs < ti.TotalDiscs {
-				results.Albums[i].TotalDiscs = ti.TotalDiscs
+			// check that the album.totalTracks still looks good
+			curAlbumTotalTracksInt, _ := strconv.Atoi(results.Albums[i].TotalTracks)
+			curTrackTotalTracksInt, _ := strconv.Atoi(ti.TotalTracks)
+			// Default to the biggest one
+			if curAlbumTotalTracksInt < curTrackTotalTracksInt {
+				results.Albums[i].TotalTracks = ti.TotalTracks
 			}
 		} else {
 			// save the index where we added the album into the name map
-			albumNameToSliceIndexMap[ti.GetAlbumKey()] = len(results.Albums)
-			tr := []common.TrackInfo{ti}
+			albumNameToSliceIndexMap[ti.Album] = len(results.Albums)
+			tr := []trackInfo{ti}
 			// create the new album in the results
-			results.Albums = append(results.Albums, common.AlbumInfo{
-				Album:      ti.Album,
-				Artist:     ti.AlbumArtist,
-				TotalDiscs: ti.TotalDiscs,
-				Tracks:     tr,
+			results.Albums = append(results.Albums, albumInfo{
+				Album:       ti.Album,
+				Artist:      t[0].AlbumArtist,
+				TotalTracks: ti.TotalTracks,
+				Tracks:      tr,
 			})
 		}
-	}
 
-	// sort the tracks in each album
-	for _, album := range results.Albums {
-		slices.SortFunc(album.Tracks, common.CmpTrackInfoDiscAndTrackNum)
+		// add the map to the files slice
+		results.Files = append(results.Files, m)
 	}
 
 	// marshal the report to []byte
-	j, _ := json.MarshalIndent(&results, "", "  ")
+	j, _ := json.Marshal(&results)
 
 	if isDryRun {
 		// print the json report to stdout
@@ -206,92 +220,47 @@ func exiftoolForString(path string) (string, error) {
 	return string(s), err
 }
 
-func exifTrackToTrackInfo(i exifTrack) common.TrackInfo {
-	t := common.TrackInfo{
-		Title:           i.Title,
-		Artist:          i.Artist,
-		Album:           i.Album,
-		AlbumArtist:     i.AlbumArtist,
-		DiscNumber:      0,
-		TotalDiscs:      0,
-		TrackNumber:     0,
-		TotalTracks:     0,
-		DurationSeconds: 0,
+func exifTrackToTrackInfo(i exifTrack) trackInfo {
+	t := trackInfo{
+		Title:       i.Title,
+		Artist:      i.Artist,
+		Album:       i.Album,
+		TrackNumber: "",
+		TotalTracks: "",
 	}
+
+	var tn string
 
 	switch v := i.TrackNumber.(type) {
 	case float64:
-		t.TrackNumber = int(v)
+		tn = fmt.Sprintf("%1.f", v)
 	case int:
-		t.TrackNumber = v
+		tn = fmt.Sprintf("%d", v)
 	case string:
-		// might be in the format "<track> of <total>"
-		if strings.Contains(v, "of") {
-			pattern := regexp.MustCompile(`(?P<track>\w+)\sof\s+(?P<total>\w+)$`)
-			match := pattern.FindSubmatch([]byte(v))
-
-			for i, name := range pattern.SubexpNames() {
-				if i != 0 && name != "" {
-					switch name {
-					case "track":
-						t.TrackNumber, _ = strconv.Atoi(string(match[i]))
-					case "total":
-						t.TotalTracks, _ = strconv.Atoi(string(match[i]))
-					}
-				}
-			}
-
-		} else {
-			t.TrackNumber, _ = strconv.Atoi(v)
-		}
+		tn = v
 	default:
 		fmt.Printf("Unknown type %T!\n", v)
 	}
 
-	switch disc := i.DiscNumber.(type) {
-	case float64:
-		t.DiscNumber = int(disc)
-	case int:
-		t.DiscNumber = disc
-	case string:
-		// might be in the format "<disc> of <total>"
-		if strings.Contains(disc, "of") {
-			pattern := regexp.MustCompile(`(?P<disc>\w+)\sof\s+(?P<total>\w+)$`)
-			match := pattern.FindSubmatch([]byte(disc))
+	// might be in the format "<track> of <total>"
+	if strings.Contains(tn, "of") {
+		pattern := regexp.MustCompile(`(?P<track>\w+)\sof\s+(?P<total>\w+)$`)
+		match := pattern.FindSubmatch([]byte(tn))
 
-			for i, name := range pattern.SubexpNames() {
-				if i != 0 && name != "" {
-					switch name {
-					case "disc":
-						t.DiscNumber, _ = strconv.Atoi(string(match[i]))
-					case "total":
-						t.TotalDiscs, _ = strconv.Atoi(string(match[i]))
-					}
+		for i, name := range pattern.SubexpNames() {
+			if i != 0 && name != "" {
+				switch name {
+				case "track":
+					t.TrackNumber = string(match[i])
+				case "total":
+					t.TotalTracks = string(match[i])
 				}
 			}
-
-		} else {
-			t.DiscNumber, _ = strconv.Atoi(disc)
 		}
-	case nil:
-		t.DiscNumber = 0
-	default:
-		fmt.Printf("Unknown type %T!\n", disc)
-	}
 
-	d, err := strconvToDuration(i.Duration)
-	if err != nil {
-		fmt.Printf("error converting string to duration. %v\n", err)
 	} else {
-		t.DurationSeconds = int(d.Seconds())
+		t.TrackNumber = tn
 	}
 
 	return t
-}
-
-func strconvToDuration(s string) (time.Duration, error) {
-	// assume s is in format "hh:mm:ss"
-	// split the string on the ":" to get components
-	c := strings.Split(s, ":")
-	return time.ParseDuration(fmt.Sprintf("%sh%sm%ss", c[0], c[1], c[2]))
 }
