@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alitto/pond/v2"
 	"github.com/spf13/cobra"
@@ -28,11 +29,12 @@ type albumInfo struct {
 }
 
 type trackInfo struct {
-	Title       string `json:"title"`
-	Artist      string `json:"artist"`
-	TrackNumber string `json:"trackNumber"`
-	TotalTracks string `json:"totalTracks"`
-	Album       string `json:"album"`
+	Title           string `json:"title"`
+	Artist          string `json:"artist"`
+	TrackNumber     string `json:"trackNumber"`
+	TotalTracks     string `json:"totalTracks"`
+	Album           string `json:"album"`
+	DurationSeconds int    `json:"durationSeconds"`
 }
 
 type exifTrack struct {
@@ -41,6 +43,7 @@ type exifTrack struct {
 	AlbumArtist string `json:"AlbumArtist"`
 	Album       string `json:"Album"`
 	TrackNumber any    `json:"TrackNumber"`
+	Duration    string `json:"Duration"`
 }
 
 var exifCmd = &cobra.Command{
@@ -222,11 +225,12 @@ func exiftoolForString(path string) (string, error) {
 
 func exifTrackToTrackInfo(i exifTrack) trackInfo {
 	t := trackInfo{
-		Title:       i.Title,
-		Artist:      i.Artist,
-		Album:       i.Album,
-		TrackNumber: "",
-		TotalTracks: "",
+		Title:           i.Title,
+		Artist:          i.Artist,
+		Album:           i.Album,
+		TrackNumber:     "",
+		TotalTracks:     "",
+		DurationSeconds: 0,
 	}
 
 	var tn string
@@ -262,5 +266,19 @@ func exifTrackToTrackInfo(i exifTrack) trackInfo {
 		t.TrackNumber = tn
 	}
 
+	d, err := strconvToDuration(i.Duration)
+	if err != nil {
+		fmt.Printf("error converting string to duration. %v\n", err)
+	} else {
+		t.DurationSeconds = int(d.Seconds())
+	}
+
 	return t
+}
+
+func strconvToDuration(s string) (time.Duration, error) {
+	// assume s is in format "hh:mm:ss"
+	// split the string on the ":" to get components
+	c := strings.Split(s, ":")
+	return time.ParseDuration(fmt.Sprintf("%sh%sm%ss", c[0], c[1], c[2]))
 }
