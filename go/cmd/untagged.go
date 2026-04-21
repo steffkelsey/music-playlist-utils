@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"os"
-
-	"github.com/dhowden/tag"
 
 	"github.com/spf13/cobra"
 
@@ -88,7 +85,7 @@ func findUntaggedFiles(rootPath string) error {
 		// save for the report
 		untaggedReportResult.CopiesCreated = append(untaggedReportResult.CopiesCreated, newPath)
 	}
-	j, _ := json.Marshal(&untaggedReportResult)
+	j, _ := json.MarshalIndent(&untaggedReportResult, "", "  ")
 	jsonString := string(j)
 	if isDryRun {
 		fmt.Println(jsonString)
@@ -102,55 +99,15 @@ func isFileUntagged(path string, info fs.FileInfo, results *common.WalkResults) 
 		return nil
 	}
 	r := untaggedResult{
-		Path:    path,
-		Reasons: make([]string, 0),
+		Path: path,
 	}
-	// Open the file to get more details
-	file, err := os.Open(path)
-	if err != nil {
-		r.Reasons = append(r.Reasons, "Could not open file")
-		untaggedReportResult.Untagged = append(untaggedReportResult.Untagged, r)
+
+	var ok bool
+	ok, _, r.Reasons = common.CreateTrackInfoFromPath(path)
+	if !ok {
 		results.Files = append(results.Files, path)
-	} else {
-		defer file.Close()
-
-		// Use dhowden/tag to read metadata
-		m, err := tag.ReadFrom(file)
-		if err != nil {
-			r.Reasons = append(r.Reasons, "Could not read tags")
-			untaggedReportResult.Untagged = append(untaggedReportResult.Untagged, r)
-			results.Files = append(results.Files, path)
-			results.Count++
-		} else {
-			isTagGood := true
-			// Must have Album, Title, Track, Artist
-			if m.Album() == "" {
-				r.Reasons = append(r.Reasons, "Missing Album tag")
-				isTagGood = false
-			}
-
-			if m.Title() == "" {
-				r.Reasons = append(r.Reasons, "Missing Title tag")
-				isTagGood = false
-			}
-
-			if m.Artist() == "" {
-				r.Reasons = append(r.Reasons, "Missing Artist tag")
-				isTagGood = false
-			}
-
-			trackNum, _ := m.Track()
-			if trackNum == 0 {
-				r.Reasons = append(r.Reasons, "Missing Track Number tag")
-				isTagGood = false
-			}
-
-			if !isTagGood {
-				results.Files = append(results.Files, path)
-				untaggedReportResult.Untagged = append(untaggedReportResult.Untagged, r)
-				results.Count++
-			}
-		}
+		untaggedReportResult.Untagged = append(untaggedReportResult.Untagged, r)
+		results.Count++
 	}
 
 	return nil

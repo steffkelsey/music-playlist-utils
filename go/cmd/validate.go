@@ -61,7 +61,7 @@ music-utils playlist validate -i -r "$HOME/Music"`,
 			return err
 		}
 		// print the json report
-		j, _ := json.Marshal(&r)
+		j, _ := json.MarshalIndent(&r, "", "  ")
 		fmt.Println(string(j))
 		return nil
 	},
@@ -154,6 +154,12 @@ func isPlaylistValid(r *validatePlaylistResult, listDir string) error {
 		if !common.FileExists(maybeValidMusicFilePath) {
 			r.BadPaths = append(r.BadPaths, maybeValidMusicFilePath)
 		}
+
+		// Check if the file has DRM
+		if common.IsEncryptedFile(maybeValidMusicFilePath) {
+			r.Reason = "Links to files with DRM. "
+			r.BadPaths = append(r.BadPaths, maybeValidMusicFilePath)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -162,7 +168,7 @@ func isPlaylistValid(r *validatePlaylistResult, listDir string) error {
 	}
 
 	if len(r.BadPaths) > 0 {
-		r.Reason = "One or more bad paths"
+		r.Reason += "One or more bad paths"
 	}
 	r.IsValid = len(r.BadPaths) == 0
 	return nil
