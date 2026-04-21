@@ -10,6 +10,7 @@ import (
 type WalkResults struct {
 	Count               int64
 	MapSizeStringSlices map[int64][]string
+	MapStringToString   map[string]string
 	Files               []string
 	RootPath            string
 }
@@ -18,6 +19,7 @@ func WalkAllMusicFiles(folder string, processFunc func(path string, info fs.File
 	results := WalkResults{
 		Count:               0,
 		MapSizeStringSlices: make(map[int64][]string),
+		MapStringToString:   make(map[string]string),
 		Files:               make([]string, 0),
 		RootPath:            folder,
 	}
@@ -63,6 +65,7 @@ func WalkAllMusicFilesNotRecursive(folder string, processFunc func(path string, 
 	results := WalkResults{
 		Count:               0,
 		MapSizeStringSlices: make(map[int64][]string),
+		MapStringToString:   make(map[string]string),
 		Files:               make([]string, 0),
 		RootPath:            folder,
 	}

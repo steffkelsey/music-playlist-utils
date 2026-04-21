@@ -67,7 +67,7 @@ func organizeMusicFiles() error {
 		Moved:    make([]common.FileMovedResult, 0),
 		Untagged: make([]untaggedResult, 0),
 	}
-	_, err := common.WalkAllMusicFiles(inputDir, isFileTagged)
+	_, err := common.WalkAllMusicFiles(inputDir, createDestinationFromTags)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func organizeMusicFiles() error {
 	return nil
 }
 
-func isFileTagged(path string, info fs.FileInfo, results *common.WalkResults) error {
+func createDestinationFromTags(path string, info fs.FileInfo, results *common.WalkResults) error {
 	// skip if the file is encrypted or a playlist
 	if common.IsEncryptedFile(path) || common.IsPlaylistFile(path) {
 		return nil

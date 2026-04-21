@@ -17,8 +17,8 @@ import (
 )
 
 type exifReport struct {
-	Files  []map[string]trackInfo `json:"files"`
-	Albums []albumInfo            `json:"albums"`
+	Files  map[string]trackInfo `json:"files"`
+	Albums []albumInfo          `json:"albums"`
 }
 
 type albumInfo struct {
@@ -94,7 +94,7 @@ func findExifData() error {
 
 	// create a var to hold results
 	results := exifReport{
-		Files:  make([]map[string]trackInfo, 0),
+		Files:  make(map[string]trackInfo),
 		Albums: make([]albumInfo, 0),
 	}
 
@@ -129,11 +129,9 @@ func findExifData() error {
 			return err
 		}
 
-		// create the map entry for the path of the encrypted file
-		m := make(map[string]trackInfo)
 		// add the metadata to the trackInfo at m[p]
 		ti := exifTrackToTrackInfo(t[0])
-		m[p] = ti
+		results.Files[p] = ti
 
 		// see if the album exists in the Albums slice
 		i, ok := albumNameToSliceIndexMap[ti.Album]
@@ -159,9 +157,6 @@ func findExifData() error {
 				Tracks:      tr,
 			})
 		}
-
-		// add the map to the files slice
-		results.Files = append(results.Files, m)
 	}
 
 	// marshal the report to []byte
