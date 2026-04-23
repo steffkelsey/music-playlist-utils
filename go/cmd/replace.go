@@ -100,9 +100,19 @@ func replaceEncryptedFiles() error {
 
 	// iterate over the tagged music files
 	for key, drmFreePath := range wr.MapStringToString {
-		// Check if there is a match in the encrypted data
+		// Check if there is a match in the encrypted data on just artist|title
 		encPath, ok := artistBarTitleToPathMap[key]
 		if ok {
+			// Once here, we know that the track.Title and track.Artist match
+			// Get the TrackInfo for the drmFree track
+			freeTrack := wr.Tracks[wr.TrackPathToIndex[drmFreePath]]
+			// Get the trackInfo for the DRM track
+			drmTrack := allExifReport.Files[encPath]
+			// check that the match is exact
+			if freeTrack.Album == drmTrack.Album && freeTrack.TrackNumber == drmTrack.TrackNumber {
+				fmt.Println("Got stuff to do!")
+			}
+
 			// Save the match in the report in Moved slice
 			fmr := common.FileMovedResult{
 				Source: encPath,
@@ -159,6 +169,8 @@ func createKeyWithTags(path string, info fs.FileInfo, results *common.WalkResult
 		results.Files = append(results.Files, path)
 		// update the count
 		results.Count++
+		// Update the map of path to index in the Tracks slice
+		results.TrackPathToIndex[path] = len(results.Tracks)
 		// append the track
 		results.Tracks = append(results.Tracks, track)
 		// see if we have a new album

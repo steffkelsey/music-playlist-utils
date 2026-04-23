@@ -34,6 +34,7 @@ type WalkResults struct {
 	Albums              []AlbumInfo
 	Tracks              []TrackInfo
 	AlbumNameToIndex    map[string]int
+	TrackPathToIndex    map[string]int
 }
 
 func WalkAllMusicFiles(folder string, processFunc func(path string, info fs.FileInfo, results *WalkResults) error) (WalkResults, error) {
