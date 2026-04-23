@@ -8,15 +8,14 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/dhowden/tag"
 	"github.com/spf13/cobra"
 
 	"music-utils/common"
 )
 
 type organizedReport struct {
-	Moved    []common.FileMovedResult `json:"moved"`
-	Untagged []untaggedResult         `json:"untagged"`
+	movedReport
+	Untagged []untaggedResult `json:"untagged"`
 }
 
 var organizedReportResult organizedReport
@@ -64,8 +63,8 @@ func init() {
 
 func organizeMusicFiles() error {
 	organizedReportResult = organizedReport{
-		Moved:    make([]common.FileMovedResult, 0),
-		Untagged: make([]untaggedResult, 0),
+		movedReport: movedReport{Moved: make([]common.FileMovedResult, 0)},
+		Untagged:    make([]untaggedResult, 0),
 	}
 	_, err := common.WalkAllMusicFiles(inputDir, createDestinationFromTags)
 	if err != nil {
@@ -100,7 +99,7 @@ func organizeMusicFiles() error {
 			fmt.Printf("- %s\n", m.Source)
 		}
 	}
-	j, _ := json.Marshal(&organizedReportResult)
+	j, _ := json.MarshalIndent(&organizedReportResult, "", "  ")
 	jsonString := string(j)
 	if isDryRun {
 		fmt.Println(jsonString)
@@ -139,82 +138,29 @@ func createDestinationFromTags(path string, info fs.FileInfo, results *common.Wa
 		return nil
 	}
 	r := untaggedResult{
-		Path:    path,
-		Reasons: make([]string, 0),
+		Path: path,
 	}
-	// Open the file to get more details
-	file, err := os.Open(path)
-	if err != nil {
-		r.Reasons = append(r.Reasons, "Could not open file")
+
+	var ok bool
+	var track common.TrackInfo
+	ok, track, r.Reasons = common.CreateTrackInfoFromPath(path)
+	if !ok {
 		organizedReportResult.Untagged = append(organizedReportResult.Untagged, r)
 		results.Files = append(results.Files, path)
 	} else {
-		defer file.Close()
-
-		var title string
-		var album string
-		var artist string
-		var trackNumber string
-		// Use dhowden/tag to read metadata
-		m, err := tag.ReadFrom(file)
-		if err != nil {
-			r.Reasons = append(r.Reasons, "Could not read tags")
-			organizedReportResult.Untagged = append(organizedReportResult.Untagged, r)
-			results.Files = append(results.Files, path)
-			results.Count++
-		} else {
-			isTagGood := true
-			// Must have Album, Title, Track, Artist
-			if m.Album() == "" {
-				r.Reasons = append(r.Reasons, "Missing Album tag")
-				isTagGood = false
-			} else {
-				album = m.Album()
-			}
-
-			if m.Title() == "" {
-				r.Reasons = append(r.Reasons, "Missing Title tag")
-				isTagGood = false
-			} else {
-				title = m.Title()
-			}
-
-			// This is Track artist NOT album artist
-			if m.Artist() == "" {
-				r.Reasons = append(r.Reasons, "Missing Artist tag")
-				isTagGood = false
-			} else {
-				artist = m.Artist()
-			}
-
-			trackNum, _ := m.Track()
-			if trackNum == 0 {
-				r.Reasons = append(r.Reasons, "Missing Track Number tag")
-				isTagGood = false
-			} else {
-				trackNumber = fmt.Sprintf("%02d", trackNum)
-			}
-
-			if !isTagGood {
-				results.Files = append(results.Files, path)
-				organizedReportResult.Untagged = append(organizedReportResult.Untagged, r)
-				results.Count++
-			} else {
-				// Desired destination is:
-				// ./[Artist]/[Album]/[Track Number] - [Title].ext
-				// BUT we want to optimize that the music tracks of the
-				// same album are in the same folder for Jellyfin (for serving)
-				// or Picard (for tag editing).
-				// So we are going to start with:
-				// ./[Album]/[Track Number] - [Artist] - [Title].ext
-				dest := fmt.Sprintf("./%s/%s - %s - %s%s", album, trackNumber, artist, title, filepath.Ext(path))
-				m := common.FileMovedResult{
-					Source: path,
-					Dest:   dest,
-				}
-				organizedReportResult.Moved = append(organizedReportResult.Moved, m)
-			}
+		// Desired destination is:
+		// ./[Artist]/[Album]/[Track Number] - [Title].ext
+		// BUT we want to optimize that the music tracks of the
+		// same album are in the same folder for Jellyfin (for serving)
+		// or Picard (for tag editing).
+		// So we are going to start with:
+		// ./[Album]/[Track Number] - [Artist] - [Title].ext
+		dest := fmt.Sprintf("./%s/%02d - %s - %s%s", track.Album, track.TrackNumber, track.Artist, track.Title, filepath.Ext(path))
+		m := common.FileMovedResult{
+			Source: path,
+			Dest:   dest,
 		}
+		organizedReportResult.Moved = append(organizedReportResult.Moved, m)
 	}
 
 	return nil

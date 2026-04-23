@@ -16,6 +16,10 @@ import (
 var configFileOrDir string
 var sourceToDestMap map[string]string
 
+type movedReport struct {
+	Moved []common.FileMovedResult `json:"moved"`
+}
+
 type repairPlaylistsReport struct {
 	Config   []string                 `json:"config"`
 	Skipped  []string                 `json:"skipped"`
@@ -74,7 +78,7 @@ music-utils playlist repair -r -i $HOME/Music -c $HOME/Music/report.json
 
 		sourceToDestMap = make(map[string]string)
 		for _, r := range maybeValidReports {
-			t, o := isValidOrganizedReport(r)
+			t, o := isValidMovedReport(r)
 			if t {
 				results.Config = append(results.Config, r)
 				// parse the report into source to dest map
@@ -232,8 +236,8 @@ func getAllJsonReportsInFolder(rootPath string) ([]string, error) {
 	return results, nil
 }
 
-func isValidOrganizedReport(path string) (bool, organizedReport) {
-	var o organizedReport
+func isValidMovedReport(path string) (bool, movedReport) {
+	var o movedReport
 	// open and read the whole file (json is usually tiny)
 	data, err := os.ReadFile(path)
 	if err != nil {

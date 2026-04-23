@@ -7,12 +7,33 @@ import (
 	"path/filepath"
 )
 
+type AlbumInfo struct {
+	Album       string      `json:"album"`
+	Artist      string      `json:"artist"`
+	Tracks      []TrackInfo `json:"tracks"`
+	TotalTracks int         `json:"totalTracks"`
+}
+
+type TrackInfo struct {
+	Path            string `json:"-"`
+	Title           string `json:"title"`
+	Artist          string `json:"artist"`
+	TrackNumber     int    `json:"trackNumber"`
+	TotalTracks     int    `json:"totalTracks"`
+	Album           string `json:"album"`
+	AlbumArtist     string `json:"albumArtist"`
+	DurationSeconds int    `json:"durationSeconds"`
+}
+
 type WalkResults struct {
 	Count               int64
 	MapSizeStringSlices map[int64][]string
 	MapStringToString   map[string]string
 	Files               []string
 	RootPath            string
+	Albums              []AlbumInfo
+	Tracks              []TrackInfo
+	AlbumNameToIndex    map[string]int
 }
 
 func WalkAllMusicFiles(folder string, processFunc func(path string, info fs.FileInfo, results *WalkResults) error) (WalkResults, error) {
@@ -22,6 +43,8 @@ func WalkAllMusicFiles(folder string, processFunc func(path string, info fs.File
 		MapStringToString:   make(map[string]string),
 		Files:               make([]string, 0),
 		RootPath:            folder,
+		Albums:              make([]AlbumInfo, 0),
+		Tracks:              make([]TrackInfo, 0),
 	}
 
 	err := filepath.Walk(folder, func(path string, info fs.FileInfo, err error) error {
@@ -68,6 +91,8 @@ func WalkAllMusicFilesNotRecursive(folder string, processFunc func(path string, 
 		MapStringToString:   make(map[string]string),
 		Files:               make([]string, 0),
 		RootPath:            folder,
+		Albums:              make([]AlbumInfo, 0),
+		Tracks:              make([]TrackInfo, 0),
 	}
 
 	entries, err := os.ReadDir(folder)

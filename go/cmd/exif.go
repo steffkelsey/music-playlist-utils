@@ -17,24 +17,8 @@ import (
 )
 
 type exifReport struct {
-	Files  map[string]trackInfo `json:"files"`
-	Albums []albumInfo          `json:"albums"`
-}
-
-type albumInfo struct {
-	Album       string      `json:"album"`
-	Artist      string      `json:"artist"`
-	Tracks      []trackInfo `json:"tracks"`
-	TotalTracks string      `json:"totalTracks"`
-}
-
-type trackInfo struct {
-	Title           string `json:"title"`
-	Artist          string `json:"artist"`
-	TrackNumber     string `json:"trackNumber"`
-	TotalTracks     string `json:"totalTracks"`
-	Album           string `json:"album"`
-	DurationSeconds int    `json:"durationSeconds"`
+	Files  map[string]common.TrackInfo `json:"files"`
+	Albums []common.AlbumInfo          `json:"albums"`
 }
 
 type exifTrack struct {
@@ -94,8 +78,8 @@ func findExifData() error {
 
 	// create a var to hold results
 	results := exifReport{
-		Files:  make(map[string]trackInfo),
-		Albums: make([]albumInfo, 0),
+		Files:  make(map[string]common.TrackInfo),
+		Albums: make([]common.AlbumInfo, 0),
 	}
 
 	// Create a pool with a result type of string
@@ -129,28 +113,25 @@ func findExifData() error {
 			return err
 		}
 
-		// add the metadata to the trackInfo at m[p]
+		// add the metadata to the TrackInfo at m[p]
 		ti := exifTrackToTrackInfo(t[0])
 		results.Files[p] = ti
 
 		// see if the album exists in the Albums slice
 		i, ok := albumNameToSliceIndexMap[ti.Album]
 		if ok {
-			// add the trackInfo to the albumInfo
+			// add the TrackInfo to the AlbumInfo
 			results.Albums[i].Tracks = append(results.Albums[i].Tracks, ti)
-			// check that the album.totalTracks still looks good
-			curAlbumTotalTracksInt, _ := strconv.Atoi(results.Albums[i].TotalTracks)
-			curTrackTotalTracksInt, _ := strconv.Atoi(ti.TotalTracks)
 			// Default to the biggest one
-			if curAlbumTotalTracksInt < curTrackTotalTracksInt {
+			if results.Albums[i].TotalTracks < ti.TotalTracks {
 				results.Albums[i].TotalTracks = ti.TotalTracks
 			}
 		} else {
 			// save the index where we added the album into the name map
 			albumNameToSliceIndexMap[ti.Album] = len(results.Albums)
-			tr := []trackInfo{ti}
+			tr := []common.TrackInfo{ti}
 			// create the new album in the results
-			results.Albums = append(results.Albums, albumInfo{
+			results.Albums = append(results.Albums, common.AlbumInfo{
 				Album:       ti.Album,
 				Artist:      t[0].AlbumArtist,
 				TotalTracks: ti.TotalTracks,
@@ -218,47 +199,43 @@ func exiftoolForString(path string) (string, error) {
 	return string(s), err
 }
 
-func exifTrackToTrackInfo(i exifTrack) trackInfo {
-	t := trackInfo{
+func exifTrackToTrackInfo(i exifTrack) common.TrackInfo {
+	t := common.TrackInfo{
 		Title:           i.Title,
 		Artist:          i.Artist,
 		Album:           i.Album,
-		TrackNumber:     "",
-		TotalTracks:     "",
+		TrackNumber:     0,
+		TotalTracks:     0,
 		DurationSeconds: 0,
 	}
 
-	var tn string
-
 	switch v := i.TrackNumber.(type) {
 	case float64:
-		tn = fmt.Sprintf("%1.f", v)
+		t.TrackNumber = int(v)
 	case int:
-		tn = fmt.Sprintf("%d", v)
+		t.TrackNumber = v
 	case string:
-		tn = v
-	default:
-		fmt.Printf("Unknown type %T!\n", v)
-	}
+		// might be in the format "<track> of <total>"
+		if strings.Contains(v, "of") {
+			pattern := regexp.MustCompile(`(?P<track>\w+)\sof\s+(?P<total>\w+)$`)
+			match := pattern.FindSubmatch([]byte(v))
 
-	// might be in the format "<track> of <total>"
-	if strings.Contains(tn, "of") {
-		pattern := regexp.MustCompile(`(?P<track>\w+)\sof\s+(?P<total>\w+)$`)
-		match := pattern.FindSubmatch([]byte(tn))
-
-		for i, name := range pattern.SubexpNames() {
-			if i != 0 && name != "" {
-				switch name {
-				case "track":
-					t.TrackNumber = string(match[i])
-				case "total":
-					t.TotalTracks = string(match[i])
+			for i, name := range pattern.SubexpNames() {
+				if i != 0 && name != "" {
+					switch name {
+					case "track":
+						t.TrackNumber, _ = strconv.Atoi(string(match[i]))
+					case "total":
+						t.TotalTracks, _ = strconv.Atoi(string(match[i]))
+					}
 				}
 			}
-		}
 
-	} else {
-		t.TrackNumber = tn
+		} else {
+			t.TrackNumber, _ = strconv.Atoi(v)
+		}
+	default:
+		fmt.Printf("Unknown type %T!\n", v)
 	}
 
 	d, err := strconvToDuration(i.Duration)

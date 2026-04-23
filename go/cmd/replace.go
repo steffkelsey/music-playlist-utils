@@ -7,14 +7,13 @@ import (
 	"maps"
 	"os"
 
-	"github.com/dhowden/tag"
 	"github.com/spf13/cobra"
 
 	"music-utils/common"
 )
 
 type replacedReport struct {
-	Moved []common.FileMovedResult `json:"moved"`
+	movedReport
 }
 
 var replaceCmd = &cobra.Command{
@@ -61,7 +60,7 @@ func init() {
 
 func replaceEncryptedFiles() error {
 	replacedReportResult := replacedReport{
-		Moved: make([]common.FileMovedResult, 0),
+		movedReport: movedReport{Moved: make([]common.FileMovedResult, 0)},
 	}
 
 	maybeValidReports, err := getReportsToValidate(configFileOrDir)
@@ -71,8 +70,8 @@ func replaceEncryptedFiles() error {
 
 	// place to store a combined report
 	allExifReport := exifReport{
-		Files:  make(map[string]trackInfo),
-		Albums: make([]albumInfo, 0),
+		Files:  make(map[string]common.TrackInfo),
+		Albums: make([]common.AlbumInfo, 0),
 	}
 	// we need a map of 'artist|title': 'path'
 	artistBarTitleToPathMap := make(map[string]string)
@@ -113,7 +112,11 @@ func replaceEncryptedFiles() error {
 		}
 	}
 
-	j, _ := json.Marshal(&replacedReportResult)
+	//if !isDryRun {
+	// delete the encrypted files
+	//}
+
+	j, _ := json.MarshalIndent(&replacedReportResult, "", "  ")
 	jsonString := string(j)
 	if isDryRun {
 		fmt.Println(jsonString)
@@ -143,60 +146,46 @@ func createKeyWithTags(path string, info fs.FileInfo, results *common.WalkResult
 	if common.IsEncryptedFile(path) || common.IsPlaylistFile(path) {
 		return nil
 	}
-	// Open the file to get more details
-	file, err := os.Open(path)
-	if err != nil {
+
+	ok, track, _ := common.CreateTrackInfoFromPath(path)
+	if !ok {
 		return nil
 	} else {
-		defer file.Close()
-
-		var title string
-		//var album string
-		var artist string
-		//var trackNumber string
-		// Use dhowden/tag to read metadata
-		m, err := tag.ReadFrom(file)
-		if err != nil {
-			return nil
+		//  create the 'artist|title' key
+		key := fmt.Sprintf("%s|%s", track.Artist, track.Title)
+		// save to the mapStringToString in the result
+		results.MapStringToString[key] = path
+		// append to the Files in the result (might need it)
+		results.Files = append(results.Files, path)
+		// update the count
+		results.Count++
+		// append the track
+		results.Tracks = append(results.Tracks, track)
+		// see if we have a new album
+		// see if the album exists in the Albums slice
+		i, ok := results.AlbumNameToIndex[track.Album]
+		if ok {
+			// add the TrackInfo to the AlbumInfo
+			results.Albums[i].Tracks = append(results.Albums[i].Tracks, track)
+			// Default to the largest number of total tracks
+			if results.Albums[i].TotalTracks < track.TotalTracks {
+				results.Albums[i].TotalTracks = track.TotalTracks
+			}
+			// Default to having an AlbumArtist
+			if results.Albums[i].Artist == "" {
+				results.Albums[i].Artist = track.AlbumArtist
+			}
 		} else {
-			isTagGood := true
-			// Must have Album, Title, Track, Artist
-			if m.Album() == "" {
-				isTagGood = false
-				//} else {
-				//	album = m.Album()
-			}
-
-			if m.Title() == "" {
-				isTagGood = false
-			} else {
-				title = m.Title()
-			}
-
-			// This is Track artist NOT album artist
-			if m.Artist() == "" {
-				isTagGood = false
-			} else {
-				artist = m.Artist()
-			}
-
-			trackNum, _ := m.Track()
-			if trackNum == 0 {
-				isTagGood = false
-				//} else {
-				//	trackNumber = fmt.Sprintf("%02d", trackNum)
-			}
-
-			if !isTagGood {
-				return nil
-			} else {
-				//  create the 'artist|title' key
-				key := fmt.Sprintf("%s|%s", artist, title)
-				// save to the mapStringToString in the result
-				results.MapStringToString[key] = path
-				// append to the Files in the result (might need it)
-				results.Files = append(results.Files, path)
-			}
+			// save the index where we added the album into the name map
+			results.AlbumNameToIndex[track.Album] = len(results.Albums)
+			a := []common.TrackInfo{track}
+			// create the new album in the results
+			results.Albums = append(results.Albums, common.AlbumInfo{
+				Album:       track.Album,
+				Artist:      track.AlbumArtist,
+				TotalTracks: track.TotalTracks,
+				Tracks:      a,
+			})
 		}
 	}
 
