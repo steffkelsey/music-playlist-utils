@@ -3,6 +3,7 @@ package common
 import (
 	"strings"
 	"unicode"
+	"unsafe"
 )
 
 func IsExactMatch(s1 string, s2 string) bool {
@@ -68,13 +69,49 @@ func IsFuzzyMatch(s1 string, s2 string) (float64, float64) {
 }
 
 func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
+	titleScore := Bool2Float(IsExactMatch(t1.Title, t2.Title))
+	albumScore := Bool2Float(IsExactMatch(t1.Album, t2.Album))
+	artistScore := Bool2Float(IsExactMatch(t1.Artist, t2.Artist))
+	albumArtistScore := Bool2Float(IsExactMatch(t1.AlbumArtist, t2.AlbumArtist))
+	trackNumberScore := Bool2Float(t1.TrackNumber == t2.TrackNumber)
+	totalTracksScore := Bool2Float(t1.TotalTracks == t2.TotalTracks)
+
+	sum := titleScore + albumScore + artistScore + albumArtistScore + trackNumberScore + totalTracksScore
+	perfect := 6.0
+
 	// A perfect match = exact matches on all
-	//Title
-	//Artist
-	//TrackNumber
-	//TotalTracks
-	//Album
-	//AlbumArtist
+	if sum < perfect {
+		// A perfect WORST match, return 0.0
+		if sum-0.001 < 0 {
+			return 0.0
+		}
+	} else {
+		// A perfect match, return 1.0
+		return 1.0
+	}
+
+	// TODO how to weight the rest?
+	// AlbumArtist is least critical
+
+	// Since Titles by Artists can match across albums because
+	// of compilations (greatest hits, soundtracks, etc)
+	// this matters the most if we are just trying to find the same
+	// track BUT i would really like the duration to be close because
+	// there can be very different versions.
+	// The question is, when should duration get involved because
+	// we have to calculate it (not commonly found in the tags)
+
+	// If we are leaning toward just the matching sound file, then the
+	// above matters most
+
+	// If we are leaning toward matching the track to a specific album,
+	// then the weight is more equal
+
+	// Rubber duck says to make this function be about matching best
+	// to an album and we should make another function that includes
+	// calulating duration to check if the track is a match across
+	// albums
+	
 
 	// A Very Likely match
 	//Title - exact
@@ -90,5 +127,14 @@ func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 	//Artist - high fuzzy
 	//Album - high fuzzy
 	//and the rest is bonus
+
 	return 0.0
+}
+
+func Bool2Float(b bool) float64 {
+	return float64(Bool2int(b))
+}
+
+func Bool2int(b bool) int {
+	return int(*(*byte)(unsafe.Pointer(&b)))
 }

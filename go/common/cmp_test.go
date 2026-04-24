@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"testing"
 
 	qt "github.com/frankban/quicktest"
@@ -72,9 +73,31 @@ func TestCmpTracks(t *testing.T) {
 			},
 			1.0,
 		},
+		{
+			TrackInfo{
+				Title:           "track 1",
+				Artist:          "artist 1",
+				TrackNumber:     1,
+				TotalTracks:     18,
+				Album:           "artist 1 live",
+				AlbumArtist:     "artist 1 live",
+				DurationSeconds: 293,
+			},
+			TrackInfo{
+				Title:           "other song",
+				Artist:          "other person",
+				TrackNumber:     2,
+				TotalTracks:     10,
+				Album:           "totally different",
+				AlbumArtist:     "totally different",
+				DurationSeconds: 120,
+			},
+			0.0,
+		},
 	}
 
 	for _, test := range tests {
+		fmt.Printf("checking %s against %s\n", test.t1.Title, test.t2.Title)
 		c.Assert(CmpTracks(test.t1, test.t2), qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
 	}
 }

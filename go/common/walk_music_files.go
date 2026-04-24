@@ -14,6 +14,10 @@ type AlbumInfo struct {
 	TotalTracks int         `json:"totalTracks"`
 }
 
+func (a AlbumInfo) IsComplete() bool {
+	return len(a.Tracks) == a.TotalTracks
+}
+
 type TrackInfo struct {
 	Path            string `json:"-"`
 	Title           string `json:"title"`
