@@ -89,6 +89,8 @@ func replaceEncryptedFiles() error {
 				key := fmt.Sprintf("%s|%s", trckInfo.Artist, trckInfo.Title)
 				artistBarTitleToPathMap[key] = trckPath
 			}
+		} else {
+			fmt.Printf("invalid report at %s\n", j)
 		}
 	}
 
@@ -100,6 +102,7 @@ func replaceEncryptedFiles() error {
 
 	// iterate over the tagged music files
 	for key, drmFreePath := range wr.MapStringToString {
+		//fmt.Printf("key: %s, p: %s\n", key, drmFreePath)
 		// Check if there is a match in the encrypted data on just artist|title
 		encPath, ok := artistBarTitleToPathMap[key]
 		if ok {
@@ -110,7 +113,7 @@ func replaceEncryptedFiles() error {
 			drmTrack := allExifReport.Files[encPath]
 			// check that the match is exact
 			if freeTrack.Album == drmTrack.Album && freeTrack.TrackNumber == drmTrack.TrackNumber {
-				fmt.Println("Got stuff to do!")
+				fmt.Printf("")
 			}
 
 			// Save the match in the report in Moved slice

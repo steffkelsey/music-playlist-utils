@@ -50,6 +50,8 @@ func WalkAllMusicFiles(folder string, processFunc func(path string, info fs.File
 		RootPath:            folder,
 		Albums:              make([]AlbumInfo, 0),
 		Tracks:              make([]TrackInfo, 0),
+		AlbumNameToIndex:    make(map[string]int),
+		TrackPathToIndex:    make(map[string]int),
 	}
 
 	err := filepath.Walk(folder, func(path string, info fs.FileInfo, err error) error {
@@ -98,6 +100,8 @@ func WalkAllMusicFilesNotRecursive(folder string, processFunc func(path string, 
 		RootPath:            folder,
 		Albums:              make([]AlbumInfo, 0),
 		Tracks:              make([]TrackInfo, 0),
+		AlbumNameToIndex:    make(map[string]int),
+		TrackPathToIndex:    make(map[string]int),
 	}
 
 	entries, err := os.ReadDir(folder)

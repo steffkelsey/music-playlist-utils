@@ -141,7 +141,7 @@ func findExifData() error {
 	}
 
 	// marshal the report to []byte
-	j, _ := json.Marshal(&results)
+	j, _ := json.MarshalIndent(&results, "", "  ")
 
 	if isDryRun {
 		// print the json report to stdout
