@@ -68,5 +68,10 @@ func (t TrackInfo) IsGood() (bool, []string) {
 		isTagGood = false
 	}
 
+	if t.TotalTracks == 0 {
+		r = append(r, "Missing Total Tracks tag")
+		isTagGood = false
+	}
+
 	return isTagGood, r
 }

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 )
@@ -12,6 +13,10 @@ func IsExactMatch(s1 string, s2 string) bool {
 func IsFuzzyMatch(s1 string, s2 string) (float64, float64) {
 	f := func(c rune) bool {
 		return !unicode.IsLetter(c) && !unicode.IsNumber(c)
+	}
+
+	if len(s1) == 0 || len(s2) == 0 {
+		return 0.0, 0.0
 	}
 
 	r2 := 0.0
@@ -89,6 +94,31 @@ func CmpAlbumTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 		return 1.0
 	}
 
+	// The only scores that can be fuzzy are string based
+	// keep perfect scores
+	if titleScore < 1.0 {
+		s1, s2 := IsFuzzyMatch(t1.Title, t2.Title)
+		titleScore = (s1 + s2) * 0.5
+	}
+	if albumScore < 1.0 {
+		s1, s2 := IsFuzzyMatch(t1.Album, t2.Album)
+		albumScore = (s1 + s2) * 0.5
+	}
+	if artistScore < 1.0 {
+		s1, s2 := IsFuzzyMatch(t1.Artist, t2.Artist)
+		artistScore = (s1 + s2) * 0.5
+	}
+	if albumArtistScore < 1.0 {
+		s1, s2 := IsFuzzyMatch(t1.AlbumArtist, t2.AlbumArtist)
+		albumArtistScore = (s1 + s2) * 0.5
+	}
+
+	// both track number and total tracks must match or throw them out
+	if trackNumberScore < 1.0 || totalTracksScore < 1.0 {
+		trackNumberScore = 0
+		totalTracksScore = 0
+	}
+
 	// TODO how to weight the rest?
 	// AlbumArtist is least critical
 
@@ -126,7 +156,16 @@ func CmpAlbumTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 	//Album - high fuzzy
 	//and the rest is bonus
 
-	return 0.0
+	fmt.Printf("'%s' | '%s': %.2f\n", t1.Title, t2.Title, titleScore)
+	fmt.Printf("'%s' | '%s': %.2f\n", t1.Album, t2.Album, albumScore)
+	fmt.Printf("'%s' | '%s': %.2f\n", t1.Artist, t2.Artist, artistScore)
+	fmt.Printf("'%s' | '%s': %.2f\n", t1.AlbumArtist, t2.AlbumArtist, albumArtistScore)
+	fmt.Printf("%d | %d: %.2f\n", t1.TrackNumber, t2.TrackNumber, trackNumberScore)
+	fmt.Printf("%d | %d: %.2f\n", t1.TotalTracks, t2.TotalTracks, totalTracksScore)
+	sum = titleScore + albumScore + artistScore + albumArtistScore + trackNumberScore + totalTracksScore
+
+	fmt.Printf("score: %.2f\n", sum/6.0)
+	return sum / 6.0
 }
 
 // CmpTracks is concerned with if two tracks match that do

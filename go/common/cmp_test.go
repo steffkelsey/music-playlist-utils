@@ -112,7 +112,7 @@ func TestCmpAlbumTracks(t *testing.T) {
 				AlbumArtist:     "Stevie Wonder",
 				DurationSeconds: 308,
 			},
-			0.6,
+			0.90,
 		},
 		{
 			TrackInfo{
@@ -133,7 +133,7 @@ func TestCmpAlbumTracks(t *testing.T) {
 				AlbumArtist:     "Starbuck",
 				DurationSeconds: 218,
 			},
-			0.6,
+			0.50,
 		},
 		{
 			TrackInfo{
@@ -154,7 +154,7 @@ func TestCmpAlbumTracks(t *testing.T) {
 				AlbumArtist:     "",
 				DurationSeconds: 270,
 			},
-			0.6,
+			0.33,
 		},
 	}
 
