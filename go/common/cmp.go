@@ -3,7 +3,6 @@ package common
 import (
 	"strings"
 	"unicode"
-	"unsafe"
 )
 
 func IsExactMatch(s1 string, s2 string) bool {
@@ -68,7 +67,7 @@ func IsFuzzyMatch(s1 string, s2 string) (float64, float64) {
 	return r1, r2
 }
 
-func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
+func CmpAlbumTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 	titleScore := Bool2Float(IsExactMatch(t1.Title, t2.Title))
 	albumScore := Bool2Float(IsExactMatch(t1.Album, t2.Album))
 	artistScore := Bool2Float(IsExactMatch(t1.Artist, t2.Artist))
@@ -111,7 +110,6 @@ func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 	// to an album and we should make another function that includes
 	// calulating duration to check if the track is a match across
 	// albums
-	
 
 	// A Very Likely match
 	//Title - exact
@@ -131,10 +129,14 @@ func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 	return 0.0
 }
 
-func Bool2Float(b bool) float64 {
-	return float64(Bool2int(b))
-}
-
-func Bool2int(b bool) int {
-	return int(*(*byte)(unsafe.Pointer(&b)))
-}
+// CmpTracks is concerned with if two tracks match that do
+// NOT come from the same album yet are still the same track.
+// The use cases this covers are one track is from the studio
+// album and the other is from a Greatest Hits compilation
+// or a movie soundtrack where the album and album artist
+// are completely different but the track is the same.
+// Basically, the Track.Title, Track.Artist and DurationSeconds
+// should be very close to matching.
+//func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
+//
+//}

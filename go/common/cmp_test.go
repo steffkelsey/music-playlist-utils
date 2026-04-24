@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"testing"
 
 	qt "github.com/frankban/quicktest"
@@ -47,7 +46,7 @@ func TestIsFuzzyMatch(t *testing.T) {
 	}
 }
 
-func TestCmpTracks(t *testing.T) {
+func TestCmpAlbumTracks(t *testing.T) {
 	c := qt.New(t)
 	tests := []struct {
 		t1       TrackInfo
@@ -97,7 +96,22 @@ func TestCmpTracks(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		fmt.Printf("checking %s against %s\n", test.t1.Title, test.t2.Title)
-		c.Assert(CmpTracks(test.t1, test.t2), qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
+		c.Assert(CmpAlbumTracks(test.t1, test.t2), qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
 	}
 }
+
+//func TestGetDuration(t *testing.T) {
+//	c := qt.New(t)
+//	tests := []struct {
+//		input    string
+//		expected float64
+//	}{
+//		{"/samples/The New Danger/01 - The Boogie Man Song.mp3", 143.06},
+//		{"/samples/Togetherness/01 - L.T.D. - Holding On (When Love Is Gone).m4a", 238.75},
+//	}
+//
+//	for _, test := range tests {
+//		actual, err := GetDuration(test.input)
+//		c.Assert(actual, qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
+//	}
+//}
