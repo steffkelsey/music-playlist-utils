@@ -144,6 +144,9 @@ func replaceEncryptedFiles() error {
 	// iterate over the DRM tracks
 OUTER:
 	for drmPath, drmTrack := range allExifReport.Files {
+		// spot for the current leader in matching the track
+		bestScore := 0.0
+		bestIndex := -1
 		// quickest way to matching tracks in well tagged lib, is for
 		// artist|title to match
 		k := strings.ToLower(fmt.Sprintf("%s|%s", drmTrack.Artist, drmTrack.Title))
@@ -164,14 +167,74 @@ OUTER:
 					}
 					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
 					continue OUTER
-
 				} else if score > 0.5 {
-					// Is good
-					fmt.Printf("%.2f for %s\n", score, drmTrack.Path)
-					// TODO hold onto this as top track but keep looking
+					// Is good enough to hold onto but keep looking
+					bestScore = score
+					bestIndex = i
 				}
 			}
 		}
+
+		if bestScore > 0.85 {
+			fmr := common.FileMovedResult{
+				Source: drmPath,
+				Dest:   wr.Tracks[bestIndex].Path,
+			}
+			replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+			continue OUTER
+		}
+
+		// if we're here, we either had no matches at all or a score for
+		// matching an album specific track less than 85% (which might be too high)
+		// Now, we will switch to matching track specific where the target is
+		// that one or both of the tracks is from Greatets Hits or a Soundtrack album
+		// but the reocrdings are close enough
+		freeTrackIndices, ok = titleToIndices[strings.ToLower(drmTrack.Title)]
+		if ok {
+			// for each matching index, do we have a perfect match?
+			// if yes, mark and continue
+			// if partial match, is it close enough?
+			for _, i := range freeTrackIndices {
+				// TODO does the wr.Tracks[i] have a DurationSeconds??
+				// check for perfect match
+				score := common.CmpTracks(drmTrack, wr.Tracks[i])
+				if score+0.001 > 1.0 {
+					// is perfect! search for this track is over!
+					// Save the match in the report in Moved slice
+					fmr := common.FileMovedResult{
+						Source: drmPath,
+						Dest:   wr.Tracks[i].Path,
+					}
+					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+					continue OUTER
+				} else if score > 0.5 {
+					fmt.Printf("score: %.1f\n", score)
+					fmt.Printf("%s | %s\n", drmTrack.Title, wr.Tracks[i].Title)
+					fmt.Printf("%s | %s\n", drmTrack.Artist, wr.Tracks[i].Artist)
+					fmt.Printf("%d | %d\n", drmTrack.DurationSeconds, wr.Tracks[i].DurationSeconds)
+					fmt.Printf("%s | %s\n", drmTrack.Album, wr.Tracks[i].Album)
+					fmt.Printf("%s | %s\n", drmTrack.AlbumArtist, wr.Tracks[i].AlbumArtist)
+					fmt.Printf("%d | %d\n", drmTrack.TrackNumber, wr.Tracks[i].TrackNumber)
+					fmt.Printf("%d | %d\n", drmTrack.TotalTracks, wr.Tracks[i].TotalTracks)
+					// Is good enough to hold onto but keep looking
+					bestScore = score
+					bestIndex = i
+				}
+			}
+		}
+
+		if bestScore > 0.85 {
+			fmr := common.FileMovedResult{
+				Source: drmPath,
+				Dest:   wr.Tracks[bestIndex].Path,
+			}
+			replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+			continue OUTER
+		}
+
+		// if we're here, there is no possible match where the title is exactly the same
+		// TODO is it worth it to find similar titles using binarySearch on the Tracks slice?
+
 	}
 
 	// iterate over the tagged music files

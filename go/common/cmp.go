@@ -1,7 +1,7 @@
 package common
 
 import (
-	"fmt"
+	"math"
 	"strings"
 	"unicode"
 )
@@ -156,15 +156,16 @@ func CmpAlbumTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 	//Album - high fuzzy
 	//and the rest is bonus
 
-	fmt.Printf("'%s' | '%s': %.2f\n", t1.Title, t2.Title, titleScore)
-	fmt.Printf("'%s' | '%s': %.2f\n", t1.Album, t2.Album, albumScore)
-	fmt.Printf("'%s' | '%s': %.2f\n", t1.Artist, t2.Artist, artistScore)
-	fmt.Printf("'%s' | '%s': %.2f\n", t1.AlbumArtist, t2.AlbumArtist, albumArtistScore)
-	fmt.Printf("%d | %d: %.2f\n", t1.TrackNumber, t2.TrackNumber, trackNumberScore)
-	fmt.Printf("%d | %d: %.2f\n", t1.TotalTracks, t2.TotalTracks, totalTracksScore)
+	//fmt.Printf("'%s' | '%s': %.2f\n", t1.Title, t2.Title, titleScore)
+	//fmt.Printf("'%s' | '%s': %.2f\n", t1.Album, t2.Album, albumScore)
+	//fmt.Printf("'%s' | '%s': %.2f\n", t1.Artist, t2.Artist, artistScore)
+	//fmt.Printf("'%s' | '%s': %.2f\n", t1.AlbumArtist, t2.AlbumArtist, albumArtistScore)
+	//fmt.Printf("%d | %d: %.2f\n", t1.TrackNumber, t2.TrackNumber, trackNumberScore)
+	//fmt.Printf("%d | %d: %.2f\n", t1.TotalTracks, t2.TotalTracks, totalTracksScore)
+
 	sum = titleScore + albumScore + artistScore + albumArtistScore + trackNumberScore + totalTracksScore
 
-	fmt.Printf("score: %.2f\n", sum/6.0)
+	//fmt.Printf("score: %.2f\n", sum/6.0)
 	return sum / 6.0
 }
 
@@ -176,9 +177,24 @@ func CmpAlbumTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 // are completely different but the track is the same.
 // Basically, the Track.Title, Track.Artist and DurationSeconds
 // should be very close to matching.
-//func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
-//
-//}
+func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
+	titleScore := Bool2Float(IsExactMatch(t1.Title, t2.Title))
+	artistScore := Bool2Float(IsExactMatch(t1.Artist, t2.Artist))
+
+	// duration score is linear falloff where 10 seconds difference (and greater) in duration
+	// results in 0.0 and 0 seconds diff in duration is a 1.0
+	var durationScore float64
+	diff := t1.DurationSeconds - t2.DurationSeconds
+	if diff == 0 {
+		durationScore = 1.0
+	} else {
+		durationScore = 1 - math.Min((math.Abs(float64(diff))/10.0), 1.0)
+	}
+
+	sum := titleScore + artistScore + durationScore
+
+	return sum / 3.0
+}
 
 func CmpAlbumInfoAlbumTitle(a, b AlbumInfo) int {
 	return strings.Compare(strings.ToLower(a.Album), strings.ToLower(b.Album))

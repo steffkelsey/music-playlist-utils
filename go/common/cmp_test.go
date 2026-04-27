@@ -163,6 +163,123 @@ func TestCmpAlbumTracks(t *testing.T) {
 	}
 }
 
+func TestCmpTracks(t *testing.T) {
+	c := qt.New(t)
+	tests := []struct {
+		t1       TrackInfo
+		t2       TrackInfo
+		expected float64
+	}{
+		{
+			TrackInfo{
+				Title:           "track 1",
+				Artist:          "artist 1",
+				TrackNumber:     1,
+				TotalTracks:     18,
+				Album:           "artist 1 live",
+				DurationSeconds: 293,
+			},
+			TrackInfo{
+				Title:           "track 1",
+				Artist:          "artist 1",
+				TrackNumber:     1,
+				TotalTracks:     18,
+				Album:           "artist 1 live",
+				DurationSeconds: 293,
+			},
+			1.0,
+		},
+		{
+			TrackInfo{
+				Title:           "track 1",
+				Artist:          "artist 1",
+				TrackNumber:     1,
+				TotalTracks:     18,
+				Album:           "artist 1 live",
+				AlbumArtist:     "artist 1 live",
+				DurationSeconds: 293,
+			},
+			TrackInfo{
+				Title:           "other song",
+				Artist:          "other person",
+				TrackNumber:     2,
+				TotalTracks:     10,
+				Album:           "totally different",
+				AlbumArtist:     "totally different",
+				DurationSeconds: 120,
+			},
+			0.0,
+		},
+		{
+			TrackInfo{
+				Title:           "Master Blaster (Jammin')",
+				Artist:          "Stevie Wonder",
+				TrackNumber:     3,
+				TotalTracks:     8,
+				Album:           "Stevie Wonder's Original Musiquarium I (Reissue)",
+				AlbumArtist:     "Stevie Wonder",
+				DurationSeconds: 308,
+			},
+			TrackInfo{
+				Title:           "Master Blaster (Jammin')",
+				Artist:          "Stevie Wonder",
+				TrackNumber:     3,
+				TotalTracks:     8,
+				Album:           "Original Musiquarium I",
+				AlbumArtist:     "Stevie Wonder",
+				DurationSeconds: 308,
+			},
+			1.0,
+		},
+		{
+			TrackInfo{
+				Title:           "Moonlight Feels Right",
+				Artist:          "Starbuck",
+				TrackNumber:     24,
+				TotalTracks:     24,
+				Album:           "The Very Best",
+				AlbumArtist:     "Starbuck",
+				DurationSeconds: 219,
+			},
+			TrackInfo{
+				Title:           "Moonlight Feels Right",
+				Artist:          "Starbuck",
+				TrackNumber:     5,
+				TotalTracks:     10,
+				Album:           "Moonlight Feels Right",
+				AlbumArtist:     "Starbuck",
+				DurationSeconds: 218,
+			},
+			0.97,
+		},
+		{
+			TrackInfo{
+				Title:           "Hollywood Swinging",
+				Artist:          "Kool and The Gang",
+				TrackNumber:     9,
+				TotalTracks:     16,
+				Album:           "Gold",
+				AlbumArtist:     "Kool & The Gang",
+				DurationSeconds: 278,
+			},
+			TrackInfo{
+				Title:           "Hollywood Swinging",
+				Artist:          "Kool & The Gang",
+				TrackNumber:     2,
+				TotalTracks:     23,
+				Album:           "Can You Dig It? The '70s Soul Experience (Disc 5)",
+				AlbumArtist:     "",
+				DurationSeconds: 270,
+			},
+			0.40,
+		},
+	}
+
+	for _, test := range tests {
+		c.Assert(CmpTracks(test.t1, test.t2), qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
+	}
+}
+
 //func TestGetDuration(t *testing.T) {
 //	c := qt.New(t)
 //	tests := []struct {
