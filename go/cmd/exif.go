@@ -204,6 +204,7 @@ func exifTrackToTrackInfo(i exifTrack) common.TrackInfo {
 		Title:           i.Title,
 		Artist:          i.Artist,
 		Album:           i.Album,
+		AlbumArtist:     i.AlbumArtist,
 		TrackNumber:     0,
 		TotalTracks:     0,
 		DurationSeconds: 0,

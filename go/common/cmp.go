@@ -119,7 +119,7 @@ func CmpAlbumTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 		totalTracksScore = 0
 	}
 
-	// TODO how to weight the rest?
+	// how to weight the rest?
 	// AlbumArtist is least critical
 
 	// Since Titles by Artists can match across albums because
@@ -179,3 +179,11 @@ func CmpAlbumTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 //func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 //
 //}
+
+func CmpAlbumInfoAlbumTitle(a, b AlbumInfo) int {
+	return strings.Compare(strings.ToLower(a.Album), strings.ToLower(b.Album))
+}
+
+func CmpTrackInfoTitle(a, b TrackInfo) int {
+	return strings.Compare(strings.ToLower(a.Title), strings.ToLower(b.Title))
+}

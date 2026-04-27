@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"maps"
 	"os"
+	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -73,8 +75,6 @@ func replaceEncryptedFiles() error {
 		Files:  make(map[string]common.TrackInfo),
 		Albums: make([]common.AlbumInfo, 0),
 	}
-	// we need a map of 'artist|title': 'path'
-	artistBarTitleToPathMap := make(map[string]string)
 	// Get all the data
 	for _, j := range maybeValidReports {
 		ok, exr := isValidExifReport(j)
@@ -82,13 +82,6 @@ func replaceEncryptedFiles() error {
 			// copy into the combined report
 			maps.Copy(allExifReport.Files, exr.Files)
 			allExifReport.Albums = append(allExifReport.Albums, exr.Albums...)
-
-			// for each trackInfo in exr.Files
-			for trckPath, trckInfo := range exr.Files {
-				// create the trackArtist|trackTitle key
-				key := fmt.Sprintf("%s|%s", trckInfo.Artist, trckInfo.Title)
-				artistBarTitleToPathMap[key] = trckPath
-			}
 		} else {
 			fmt.Printf("invalid report at %s\n", j)
 		}
@@ -100,30 +93,111 @@ func replaceEncryptedFiles() error {
 		return err
 	}
 
-	// iterate over the tagged music files
-	for key, drmFreePath := range wr.MapStringToString {
-		//fmt.Printf("key: %s, p: %s\n", key, drmFreePath)
-		// Check if there is a match in the encrypted data on just artist|title
-		encPath, ok := artistBarTitleToPathMap[key]
+	// Sort the Tracks slice
+	slices.SortFunc(wr.Tracks, common.CmpTrackInfoTitle)
+	// create map for searching on artist|title for TrackInfo
+	// create map for searching on title for TrackInfo
+	artistTitleToIndices := make(map[string][]int)
+	titleToIndices := make(map[string][]int)
+	for i, t := range wr.Tracks {
+		k := strings.ToLower(fmt.Sprintf("%s|%s", t.Artist, t.Title))
+		_, ok := artistTitleToIndices[k]
 		if ok {
-			// Once here, we know that the track.Title and track.Artist match
-			// Get the TrackInfo for the drmFree track
-			freeTrack := wr.Tracks[wr.TrackPathToIndex[drmFreePath]]
-			// Get the trackInfo for the DRM track
-			drmTrack := allExifReport.Files[encPath]
-			// check that the match is exact
-			if freeTrack.Album == drmTrack.Album && freeTrack.TrackNumber == drmTrack.TrackNumber {
-				fmt.Printf("")
-			}
-
-			// Save the match in the report in Moved slice
-			fmr := common.FileMovedResult{
-				Source: encPath,
-				Dest:   drmFreePath,
-			}
-			replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+			artistTitleToIndices[k] = append(artistTitleToIndices[k], i)
+		} else {
+			artistTitleToIndices[k] = make([]int, 1)
+			artistTitleToIndices[k][0] = i
+		}
+		k = strings.ToLower(t.Title)
+		_, ok = titleToIndices[k]
+		if ok {
+			titleToIndices[k] = append(titleToIndices[k], i)
+		} else {
+			titleToIndices[k] = make([]int, 1)
+			titleToIndices[k][0] = i
 		}
 	}
+
+	// Sort the Albums slice
+	slices.SortFunc(wr.Albums, common.CmpAlbumInfoAlbumTitle)
+	// create map for searching on album title for AlbumInfo
+	albumToIndices := make(map[string][]int)
+	for i, a := range wr.Albums {
+		k := strings.ToLower(a.Album)
+		_, ok := albumToIndices[k]
+		if ok {
+			albumToIndices[k] = append(albumToIndices[k], i)
+		} else {
+			albumToIndices[k] = make([]int, 1)
+			albumToIndices[k][0] = i
+		}
+	}
+
+	// At this point, we have multiple ways to search in our DRM-Free music
+	// for matches in the slices of DRM Tracks and DRM albums.
+	// We can look for matching artist|title in one map
+	// We can look for matching title in another map
+	// We can binary search by track title in the Tracks slice for fuzzy matches
+	// And for albums, we can look for matches using the Album title as a key
+	// And we can binary search the Albums slice for fuzzy matches
+
+	// iterate over the DRM tracks
+OUTER:
+	for drmPath, drmTrack := range allExifReport.Files {
+		// quickest way to matching tracks in well tagged lib, is for
+		// artist|title to match
+		k := strings.ToLower(fmt.Sprintf("%s|%s", drmTrack.Artist, drmTrack.Title))
+		freeTrackIndices, ok := artistTitleToIndices[k]
+		if ok {
+			// for each matching index, do we have a perfect match?
+			// if yes, mark and continue
+			// if partial match, is it close enough?
+			for _, i := range freeTrackIndices {
+				// check for perfect match
+				score := common.CmpAlbumTracks(drmTrack, wr.Tracks[i])
+				if score+0.001 > 1.0 {
+					// is perfect! search for this track is over!
+					// Save the match in the report in Moved slice
+					fmr := common.FileMovedResult{
+						Source: drmPath,
+						Dest:   wr.Tracks[i].Path,
+					}
+					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+					continue OUTER
+
+				} else if score > 0.5 {
+					// Is good
+					fmt.Printf("%.2f for %s\n", score, drmTrack.Path)
+					// TODO hold onto this as top track but keep looking
+				}
+			}
+		}
+	}
+
+	// iterate over the tagged music files
+	//for key, drmFreePath := range wr.MapStringToString {
+	//	//fmt.Printf("key: %s, p: %s\n", key, drmFreePath)
+	//	// Check if there is a match in the encrypted data on just artist|title
+	//	encPath, ok := artistBarTitleToPathMap[key]
+	//	if ok {
+	//		// Once here, we know that the track.Title and track.Artist match
+	//		// Get the TrackInfo for the drmFree track
+	//		freeTrack := wr.Tracks[wr.TrackPathToIndex[drmFreePath]]
+	//		// Get the trackInfo for the DRM track
+	//		drmTrack := allExifReport.Files[encPath]
+	//		// check that the match is exact
+	//		if freeTrack.Album == drmTrack.Album && freeTrack.TrackNumber == drmTrack.TrackNumber {
+	//			fmt.Printf("")
+	//		}
+
+	//		// Save the match in the report in Moved slice
+	//		fmr := common.FileMovedResult{
+	//			Source: encPath,
+	//			Dest:   drmFreePath,
+	//		}
+	//		replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+	//	}
+	//}
 
 	//if !isDryRun {
 	// delete the encrypted files
@@ -164,10 +238,6 @@ func createKeyWithTags(path string, info fs.FileInfo, results *common.WalkResult
 	if !ok {
 		return nil
 	} else {
-		//  create the 'artist|title' key
-		key := fmt.Sprintf("%s|%s", track.Artist, track.Title)
-		// save to the mapStringToString in the result
-		results.MapStringToString[key] = path
 		// append to the Files in the result (might need it)
 		results.Files = append(results.Files, path)
 		// update the count
