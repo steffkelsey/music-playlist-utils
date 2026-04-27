@@ -26,6 +26,7 @@ func TestExifTrackToTrackInfo(t *testing.T) {
 			common.TrackInfo{
 				Title:           "track 1",
 				Artist:          "artist 1",
+				AlbumArtist:     "88 artists",
 				TrackNumber:     1,
 				TotalTracks:     18,
 				Album:           "artist 1 live",
@@ -44,6 +45,7 @@ func TestExifTrackToTrackInfo(t *testing.T) {
 			common.TrackInfo{
 				Title:           "track 19",
 				Artist:          "The Boss",
+				AlbumArtist:     "The Boss and the Band",
 				TrackNumber:     19,
 				TotalTracks:     19,
 				Album:           "That Sad One",
@@ -62,6 +64,7 @@ func TestExifTrackToTrackInfo(t *testing.T) {
 			common.TrackInfo{
 				Title:           "track 19",
 				Artist:          "The Boss",
+				AlbumArtist:     "The Boss and the Band",
 				TrackNumber:     19,
 				TotalTracks:     0,
 				Album:           "That Sad One",
