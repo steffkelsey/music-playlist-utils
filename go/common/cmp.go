@@ -1,10 +1,24 @@
 package common
 
 import (
+	"cmp"
 	"math"
 	"strings"
 	"unicode"
 )
+
+type TrackMatch struct {
+	TrackPaths   []string `json:"tracks"`
+	Score        float64  `json:"score"`
+	Titles       string   `json:"titles"`
+	Artists      string   `json:"artists"`
+	Albums       string   `json:"albums"`
+	AlbumArtists string   `json:"albumArtists"`
+	Durations    string   `json:"durations"`
+	TrackNumbers string   `json:"trackNumbers"`
+	TotalTracks  string   `json:"totalTracks"`
+	Success      bool     `json:"success"`
+}
 
 func IsExactMatch(s1 string, s2 string) bool {
 	return strings.EqualFold(s1, s2)
@@ -102,50 +116,6 @@ func CmpAlbumTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 		totalTracksScore = 0
 	}
 
-	// how to weight the rest?
-	// AlbumArtist is least critical
-
-	// Since Titles by Artists can match across albums because
-	// of compilations (greatest hits, soundtracks, etc)
-	// this matters the most if we are just trying to find the same
-	// track BUT i would really like the duration to be close because
-	// there can be very different versions.
-	// The question is, when should duration get involved because
-	// we have to calculate it (not commonly found in the tags)
-
-	// If we are leaning toward just the matching sound file, then the
-	// above matters most
-
-	// If we are leaning toward matching the track to a specific album,
-	// then the weight is more equal
-
-	// Rubber duck says to make this function be about matching best
-	// to an album and we should make another function that includes
-	// calulating duration to check if the track is a match across
-	// albums
-
-	// A Very Likely match
-	//Title - exact
-	//TrackNumber - exact
-	//TotalTracks - exact
-	//
-	//Artist - high fuzzy
-	//Album - high fuzzy
-	//AlbumArtist - high fuzzy
-
-	// A likely match
-	//Title - high fuzzy
-	//Artist - high fuzzy
-	//Album - high fuzzy
-	//and the rest is bonus
-
-	//fmt.Printf("'%s' | '%s': %.2f\n", t1.Title, t2.Title, titleScore)
-	//fmt.Printf("'%s' | '%s': %.2f\n", t1.Album, t2.Album, albumScore)
-	//fmt.Printf("'%s' | '%s': %.2f\n", t1.Artist, t2.Artist, artistScore)
-	//fmt.Printf("'%s' | '%s': %.2f\n", t1.AlbumArtist, t2.AlbumArtist, albumArtistScore)
-	//fmt.Printf("%d | %d: %.2f\n", t1.TrackNumber, t2.TrackNumber, trackNumberScore)
-	//fmt.Printf("%d | %d: %.2f\n", t1.TotalTracks, t2.TotalTracks, totalTracksScore)
-
 	sum = titleScore + albumScore + artistScore + albumArtistScore + trackNumberScore + totalTracksScore
 
 	//fmt.Printf("score: %.2f\n", sum/6.0)
@@ -171,7 +141,7 @@ func CmpTracks(t1 TrackInfo, t2 TrackInfo) float64 {
 	if diff == 0 {
 		durationScore = 1.0
 	} else {
-		durationScore = 1 - math.Min((math.Abs(float64(diff))/10.0), 1.0)
+		durationScore = 1 - math.Min((math.Abs(float64(diff))/11.0), 1.0)
 	}
 
 	sum := titleScore + artistScore + durationScore
@@ -274,4 +244,8 @@ func scoreSub(s1, s2 string) float64 {
 	}
 	return r
 
+}
+
+func CmpTrackMatchScore(a, b TrackMatch) int {
+	return -1 * cmp.Compare(a.Score, b.Score)
 }

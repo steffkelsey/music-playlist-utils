@@ -38,6 +38,7 @@ func TestIsFuzzyMatch(t *testing.T) {
 		{"Gold: Bob Marley & The Wailers", "Blue", 0.0, 0.0},
 		{"The Stranger", "The Stranger (Remastered)", 0.66, 1.0},
 		{"Rufus & Chaka Khan", "Rufus feat. Chaka Khan", 0.75, 1.0},
+		{"Yazoo", "Yaz", 0.0, 0.85},
 	}
 
 	for _, test := range tests {
@@ -272,7 +273,7 @@ func TestCmpTracks(t *testing.T) {
 				AlbumArtist:     "",
 				DurationSeconds: 270,
 			},
-			0.69,
+			0.72,
 		},
 	}
 

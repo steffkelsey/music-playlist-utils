@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 )
 
 type replacedReport struct {
+	Matches []common.TrackMatch `json:"matches"`
 	movedReport
 }
 
@@ -144,6 +146,7 @@ func replaceEncryptedFiles() error {
 	// iterate over the DRM tracks
 OUTER:
 	for drmPath, drmTrack := range allExifReport.Files {
+		drmTrack.Path = drmPath
 		// spot for the current leader in matching the track
 		bestScore := 0.0
 		bestIndex := -1
@@ -166,6 +169,8 @@ OUTER:
 						Dest:   wr.Tracks[i].Path,
 					}
 					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+					replacedReportResult.Matches = append(replacedReportResult.Matches,
+						common.FmtTrackMatch(drmTrack, wr.Tracks[i], score, true))
 					continue OUTER
 				} else if score > 0.5 {
 					// Is good enough to hold onto but keep looking
@@ -175,12 +180,16 @@ OUTER:
 			}
 		}
 
+		// we never found a perfect match, we can decide to stop looking
+		// and take a very good match
 		if bestScore > 0.85 {
 			fmr := common.FileMovedResult{
 				Source: drmPath,
 				Dest:   wr.Tracks[bestIndex].Path,
 			}
 			replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+			replacedReportResult.Matches = append(replacedReportResult.Matches,
+				common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, true))
 			continue OUTER
 		}
 
@@ -188,10 +197,11 @@ OUTER:
 		// matching an album specific track less than 85% (which might be too high)
 		// We could be in the situation where the artist did not match (often the
 		// case when a track has multiple artist but the tags did not include them
-		// all for both).
-		// Now, we will switch to matching track specific where the target is
-		// that one or both of the tracks is from Greatets Hits or a Soundtrack album
-		// but the reocrdings are close enough
+		// all for both or described multiple artists without exact matching language).
+		// Below we will solve for matching mathcing titles but not perfectly matching
+		// artists.
+		// The long tail being where the target is that one or both of the tracks is
+		// from Greatets Hits or a Soundtrack album but the recordings are close enough
 		freeTrackIndices, ok = titleToIndices[strings.ToLower(drmTrack.Title)]
 		if ok {
 			// for each matching index, do we have a perfect match?
@@ -200,6 +210,8 @@ OUTER:
 			for _, i := range freeTrackIndices {
 				// check using album information first
 				// check for really good to perfect match
+				// we are still matching across album info here
+				// where track number and total tracks is heavily weighted
 				score := common.CmpAlbumTracks(drmTrack, wr.Tracks[i])
 				if score > 0.85 {
 					// is good enough! search for this track is over!
@@ -209,6 +221,8 @@ OUTER:
 						Dest:   wr.Tracks[i].Path,
 					}
 					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+					replacedReportResult.Matches = append(replacedReportResult.Matches,
+						common.FmtTrackMatch(drmTrack, wr.Tracks[i], score, true))
 					continue OUTER
 				} else if score > 0.5 {
 					// Is good enough to hold onto but keep looking
@@ -219,7 +233,7 @@ OUTER:
 				// That didn't work, let's get the Duration and go
 				// for a match where we don't include Album, track number,
 				// and total tracks.
-				// does the wr.Tracks[i] have a DurationSeconds??
+				// Get the duration if wr.Tracks[i] does not have it
 				if wr.Tracks[i].DurationSeconds == 0 {
 					d, err := common.GetDuration(wr.Tracks[i].Path)
 					if err != nil {
@@ -238,17 +252,19 @@ OUTER:
 						Dest:   wr.Tracks[i].Path,
 					}
 					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+					replacedReportResult.Matches = append(replacedReportResult.Matches,
+						common.FmtTrackMatch(drmTrack, wr.Tracks[i], score, true))
 					continue OUTER
 				} else if score > 0.5 {
-					fmt.Printf("score: %.1f\n", score)
-					fmt.Printf("%s | %s\n", drmTrack.Title, wr.Tracks[i].Title)
-					fmt.Printf("%s | %s\n", drmTrack.Artist, wr.Tracks[i].Artist)
-					fmt.Printf("%d | %d\n", drmTrack.DurationSeconds, wr.Tracks[i].DurationSeconds)
-					fmt.Printf("%s | %s\n", drmTrack.Album, wr.Tracks[i].Album)
-					fmt.Printf("%s | %s\n", drmTrack.AlbumArtist, wr.Tracks[i].AlbumArtist)
-					fmt.Printf("%d | %d\n", drmTrack.TrackNumber, wr.Tracks[i].TrackNumber)
-					fmt.Printf("%d | %d\n", drmTrack.TotalTracks, wr.Tracks[i].TotalTracks)
-					fmt.Printf("%s\n", wr.Tracks[i].Path)
+					//fmt.Printf("score: %.2f\n", score)
+					//fmt.Printf("%s | %s\n", drmTrack.Title, wr.Tracks[i].Title)
+					//fmt.Printf("%s | %s\n", drmTrack.Artist, wr.Tracks[i].Artist)
+					//fmt.Printf("%d | %d\n", drmTrack.DurationSeconds, wr.Tracks[i].DurationSeconds)
+					//fmt.Printf("%s | %s\n", drmTrack.Album, wr.Tracks[i].Album)
+					//fmt.Printf("%s | %s\n", drmTrack.AlbumArtist, wr.Tracks[i].AlbumArtist)
+					//fmt.Printf("%d | %d\n", drmTrack.TrackNumber, wr.Tracks[i].TrackNumber)
+					//fmt.Printf("%d | %d\n", drmTrack.TotalTracks, wr.Tracks[i].TotalTracks)
+					//fmt.Printf("%s\n", wr.Tracks[i].Path)
 					// Is good enough to hold onto but keep looking
 					bestScore = score
 					bestIndex = i
@@ -256,53 +272,60 @@ OUTER:
 			}
 		}
 
+		// we're only taking over 85% on this. Might be too low for this type of match?
 		if bestScore > 0.85 {
 			fmr := common.FileMovedResult{
 				Source: drmPath,
 				Dest:   wr.Tracks[bestIndex].Path,
 			}
 			replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+			replacedReportResult.Matches = append(replacedReportResult.Matches,
+				common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, true))
 			continue OUTER
+		} else if bestScore > 0.5 {
+			replacedReportResult.Matches = append(replacedReportResult.Matches,
+				common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, false))
 		}
 
 		// if we're here, there is no possible match where the title is exactly the same
 		// TODO is it worth it to find similar titles using binarySearch on the Tracks slice?
-
 	}
 
-	// iterate over the tagged music files
-	//for key, drmFreePath := range wr.MapStringToString {
-	//	//fmt.Printf("key: %s, p: %s\n", key, drmFreePath)
-	//	// Check if there is a match in the encrypted data on just artist|title
-	//	encPath, ok := artistBarTitleToPathMap[key]
-	//	if ok {
-	//		// Once here, we know that the track.Title and track.Artist match
-	//		// Get the TrackInfo for the drmFree track
-	//		freeTrack := wr.Tracks[wr.TrackPathToIndex[drmFreePath]]
-	//		// Get the trackInfo for the DRM track
-	//		drmTrack := allExifReport.Files[encPath]
-	//		// check that the match is exact
-	//		if freeTrack.Album == drmTrack.Album && freeTrack.TrackNumber == drmTrack.TrackNumber {
-	//			fmt.Printf("")
-	//		}
+	// Sort the matches from best to worst by score
+	slices.SortFunc(replacedReportResult.Matches, common.CmpTrackMatchScore)
 
-	//		// Save the match in the report in Moved slice
-	//		fmr := common.FileMovedResult{
-	//			Source: encPath,
-	//			Dest:   drmFreePath,
-	//		}
-	//		replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
-	//	}
-	//}
-
-	//if !isDryRun {
-	// delete the encrypted files
-	//}
+	if !isDryRun {
+		for _, m := range replacedReportResult.Moved {
+			// delete the source file (the encrypted one in this case)
+			os.Remove(m.Source)
+			fmt.Printf("- %s\n", m.Source)
+		}
+	}
 
 	j, _ := json.MarshalIndent(&replacedReportResult, "", "  ")
 	jsonString := string(j)
 	if isDryRun {
 		fmt.Println(jsonString)
+	} else {
+		// save the report without overwriting
+		// create a destination for the report
+		reportPath := filepath.Join(outputDir, "replaced.json")
+		// We don't want to overwrite reports, so make sure the path is unique
+		reportPath = common.FindFileNameNoOverWrite(reportPath)
+		// create the file at the path
+		f, err := os.Create(reportPath)
+		if err != nil {
+			return err
+		}
+
+		// close the file when done
+		defer f.Close()
+
+		// write to the file
+		_, err = f.WriteString(jsonString)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
