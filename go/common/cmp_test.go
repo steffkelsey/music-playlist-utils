@@ -34,9 +34,10 @@ func TestIsFuzzyMatch(t *testing.T) {
 	}{
 		{"Gold", "Gold", 1.0, 1.0},
 		{"Gold: Bob Marley & The Wailers", "gold: bob marley & the wailers", 1.0, 1.0},
-		{"Gold: Bob Marley & The Wailers", "Gold", 0.2, 0.45},
+		{"Gold: Bob Marley & The Wailers", "Gold", 0.2, 0.42},
 		{"Gold: Bob Marley & The Wailers", "Blue", 0.0, 0.0},
-		{"The Stranger", "The Stranger (Remastered)", 0.66, 0.91},
+		{"The Stranger", "The Stranger (Remastered)", 0.66, 1.0},
+		{"Rufus & Chaka Khan", "Rufus feat. Chaka Khan", 0.75, 1.0},
 	}
 
 	for _, test := range tests {
@@ -112,7 +113,7 @@ func TestCmpAlbumTracks(t *testing.T) {
 				AlbumArtist:     "Stevie Wonder",
 				DurationSeconds: 308,
 			},
-			0.90,
+			0.92,
 		},
 		{
 			TrackInfo{
@@ -271,7 +272,7 @@ func TestCmpTracks(t *testing.T) {
 				AlbumArtist:     "",
 				DurationSeconds: 270,
 			},
-			0.40,
+			0.69,
 		},
 	}
 
@@ -295,3 +296,19 @@ func TestCmpTracks(t *testing.T) {
 //		c.Assert(actual, qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
 //	}
 //}
+
+func TestSubstrMagic(t *testing.T) {
+	c := qt.New(t)
+	tests := []struct {
+		a1       []string
+		a2       []string
+		expected float64
+	}{
+		{[]string{"rufus", "chaka", "khan"}, []string{"rufus", "feat", "chaka", "khan"}, 1.0},
+		{[]string{"gold", "bob", "marley", "the", "wailers"}, []string{"blue"}, 0.0},
+	}
+
+	for _, test := range tests {
+		c.Assert(SubstrMagic(test.a1, test.a2), qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
+	}
+}

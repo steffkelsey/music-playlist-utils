@@ -186,6 +186,9 @@ OUTER:
 
 		// if we're here, we either had no matches at all or a score for
 		// matching an album specific track less than 85% (which might be too high)
+		// We could be in the situation where the artist did not match (often the
+		// case when a track has multiple artist but the tags did not include them
+		// all for both).
 		// Now, we will switch to matching track specific where the target is
 		// that one or both of the tracks is from Greatets Hits or a Soundtrack album
 		// but the reocrdings are close enough
@@ -195,9 +198,38 @@ OUTER:
 			// if yes, mark and continue
 			// if partial match, is it close enough?
 			for _, i := range freeTrackIndices {
-				// TODO does the wr.Tracks[i] have a DurationSeconds??
+				// check using album information first
+				// check for really good to perfect match
+				score := common.CmpAlbumTracks(drmTrack, wr.Tracks[i])
+				if score > 0.85 {
+					// is good enough! search for this track is over!
+					// Save the match in the report in Moved slice
+					fmr := common.FileMovedResult{
+						Source: drmPath,
+						Dest:   wr.Tracks[i].Path,
+					}
+					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+					continue OUTER
+				} else if score > 0.5 {
+					// Is good enough to hold onto but keep looking
+					bestScore = score
+					bestIndex = i
+				}
+
+				// That didn't work, let's get the Duration and go
+				// for a match where we don't include Album, track number,
+				// and total tracks.
+				// does the wr.Tracks[i] have a DurationSeconds??
+				if wr.Tracks[i].DurationSeconds == 0 {
+					d, err := common.GetDuration(wr.Tracks[i].Path)
+					if err != nil {
+						fmt.Printf("error getting duration. %+v\n", err)
+					} else {
+						wr.Tracks[i].DurationSeconds = int(d)
+					}
+				}
 				// check for perfect match
-				score := common.CmpTracks(drmTrack, wr.Tracks[i])
+				score = common.CmpTracks(drmTrack, wr.Tracks[i])
 				if score+0.001 > 1.0 {
 					// is perfect! search for this track is over!
 					// Save the match in the report in Moved slice
@@ -216,6 +248,7 @@ OUTER:
 					fmt.Printf("%s | %s\n", drmTrack.AlbumArtist, wr.Tracks[i].AlbumArtist)
 					fmt.Printf("%d | %d\n", drmTrack.TrackNumber, wr.Tracks[i].TrackNumber)
 					fmt.Printf("%d | %d\n", drmTrack.TotalTracks, wr.Tracks[i].TotalTracks)
+					fmt.Printf("%s\n", wr.Tracks[i].Path)
 					// Is good enough to hold onto but keep looking
 					bestScore = score
 					bestIndex = i
