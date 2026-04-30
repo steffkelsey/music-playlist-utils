@@ -37,6 +37,16 @@ func GetDuration(path string) (float64, error) {
 	return 0.0, fmt.Errorf("cannot find duration for that filetype")
 }
 
+func FmtAlbumMatch(a1, a2 AlbumInfo, score float64, success bool) AlbumMatch {
+	return AlbumMatch{
+		Score:      score,
+		Titles:     fmt.Sprintf("%s | %s", a1.Album, a2.Album),
+		Artists:    fmt.Sprintf("%s | %s", a1.Artist, a2.Artist),
+		TotalDiscs: fmt.Sprintf("%d | %d", a1.TotalDiscs, a2.TotalDiscs),
+		Success:    success,
+	}
+}
+
 func FmtTrackMatch(t1, t2 TrackInfo, score float64, success bool) TrackMatch {
 	return TrackMatch{
 		TrackPaths:   []string{t1.Path, t2.Path},
@@ -48,6 +58,8 @@ func FmtTrackMatch(t1, t2 TrackInfo, score float64, success bool) TrackMatch {
 		Durations:    fmt.Sprintf("%d | %d", t1.DurationSeconds, t2.DurationSeconds),
 		TrackNumbers: fmt.Sprintf("%d | %d", t1.TrackNumber, t2.TrackNumber),
 		TotalTracks:  fmt.Sprintf("%d | %d", t1.TotalTracks, t2.TotalTracks),
+		DiscNumbers:  fmt.Sprintf("%d | %d", t1.DiscNumber, t2.DiscNumber),
+		TotalDiscs:   fmt.Sprintf("%d | %d", t1.TotalDiscs, t2.TotalDiscs),
 		Success:      success,
 	}
 }

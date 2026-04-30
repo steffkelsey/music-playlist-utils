@@ -48,6 +48,46 @@ func TestIsFuzzyMatch(t *testing.T) {
 	}
 }
 
+func TestCmpAlbums(t *testing.T) {
+	c := qt.New(t)
+	tests := []struct {
+		a1       AlbumInfo
+		a2       AlbumInfo
+		expected float64
+	}{
+		{
+			AlbumInfo{
+				Album:      "Album 1",
+				Artist:     "artist 1",
+				TotalDiscs: 1,
+			},
+			AlbumInfo{
+				Album:      "Album 1",
+				Artist:     "artist 1",
+				TotalDiscs: 1,
+			},
+			1.0,
+		},
+		{
+			AlbumInfo{
+				Album:      "Totally Different",
+				Artist:     "some guy",
+				TotalDiscs: 6,
+			},
+			AlbumInfo{
+				Album:      "Album 1",
+				Artist:     "artist 1",
+				TotalDiscs: 1,
+			},
+			0.0,
+		},
+	}
+
+	for _, test := range tests {
+		c.Assert(CmpAlbums(test.a1, test.a2), qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
+	}
+}
+
 func TestCmpAlbumTracks(t *testing.T) {
 	c := qt.New(t)
 	tests := []struct {
@@ -78,6 +118,8 @@ func TestCmpAlbumTracks(t *testing.T) {
 			TrackInfo{
 				Title:           "track 1",
 				Artist:          "artist 1",
+				DiscNumber:      1,
+				TotalDiscs:      1,
 				TrackNumber:     1,
 				TotalTracks:     18,
 				Album:           "artist 1 live",
@@ -87,6 +129,8 @@ func TestCmpAlbumTracks(t *testing.T) {
 			TrackInfo{
 				Title:           "other song",
 				Artist:          "other person",
+				DiscNumber:      2,
+				TotalDiscs:      2,
 				TrackNumber:     2,
 				TotalTracks:     10,
 				Album:           "totally different",
@@ -114,7 +158,7 @@ func TestCmpAlbumTracks(t *testing.T) {
 				AlbumArtist:     "Stevie Wonder",
 				DurationSeconds: 308,
 			},
-			0.92,
+			0.94,
 		},
 		{
 			TrackInfo{
@@ -135,12 +179,14 @@ func TestCmpAlbumTracks(t *testing.T) {
 				AlbumArtist:     "Starbuck",
 				DurationSeconds: 218,
 			},
-			0.50,
+			0.625,
 		},
 		{
 			TrackInfo{
 				Title:           "Hollywood Swinging",
 				Artist:          "Kool & The Gang",
+				DiscNumber:      1,
+				TotalDiscs:      2,
 				TrackNumber:     9,
 				TotalTracks:     16,
 				Album:           "Gold",
@@ -150,13 +196,15 @@ func TestCmpAlbumTracks(t *testing.T) {
 			TrackInfo{
 				Title:           "Hollywood Swinging",
 				Artist:          "Kool & The Gang",
+				DiscNumber:      5,
+				TotalDiscs:      6,
 				TrackNumber:     2,
 				TotalTracks:     23,
 				Album:           "Can You Dig It? The '70s Soul Experience (Disc 5)",
-				AlbumArtist:     "",
+				AlbumArtist:     "Kool & The Gang",
 				DurationSeconds: 270,
 			},
-			0.33,
+			0.375,
 		},
 	}
 

@@ -38,6 +38,7 @@ func CreateTrackInfoFromTags(path string, m tag.Metadata) TrackInfo {
 	}
 
 	t.TrackNumber, t.TotalTracks = m.Track()
+	t.DiscNumber, t.TotalDiscs = m.Disc()
 
 	return t
 }
@@ -60,6 +61,11 @@ func (t TrackInfo) IsGood() (bool, []string) {
 	// This is Track artist NOT album artist
 	if t.Artist == "" {
 		r = append(r, "Missing Artist tag")
+		isTagGood = false
+	}
+
+	if t.AlbumArtist == "" {
+		r = append(r, "Missing Album Artist tag")
 		isTagGood = false
 	}
 

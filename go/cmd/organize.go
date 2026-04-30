@@ -149,13 +149,13 @@ func createDestinationFromTags(path string, info fs.FileInfo, results *common.Wa
 		results.Files = append(results.Files, path)
 	} else {
 		// Desired destination is:
-		// ./[Artist]/[Album]/[Track Number] - [Title].ext
+		// ./[Album Artist]/[Album]/[Track Number] - [Title].ext
 		// BUT we want to optimize that the music tracks of the
 		// same album are in the same folder for Jellyfin (for serving)
 		// or Picard (for tag editing).
 		// So we are going to start with:
-		// ./[Album]/[Track Number] - [Artist] - [Title].ext
-		dest := fmt.Sprintf("./%s/%02d - %s - %s%s", track.Album, track.TrackNumber, track.Artist, track.Title, filepath.Ext(path))
+		// ./[Album Artist][Album]/[Track Number] - [Artist] - [Title].ext
+		dest := fmt.Sprintf("./%s/%s/%02d - %s - %s%s", track.AlbumArtist, track.Album, track.TrackNumber, track.Artist, track.Title, filepath.Ext(path))
 		m := common.FileMovedResult{
 			Source: path,
 			Dest:   dest,

@@ -90,7 +90,7 @@ func replaceEncryptedFiles() error {
 	}
 
 	// Now, walk all the files in the input folder
-	wr, err := common.WalkAllMusicFiles(inputDir, createKeyWithTags)
+	wr, err := common.WalkAllMusicFiles(inputDir, createAlbumAndTrackInfo)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,8 @@ func replaceEncryptedFiles() error {
 	artistTitleToIndices := make(map[string][]int)
 	titleToIndices := make(map[string][]int)
 	for i, t := range wr.Tracks {
-		k := strings.ToLower(fmt.Sprintf("%s|%s", t.Artist, t.Title))
+		wr.TrackPathToIndex[t.Path] = i
+		k := t.GetKey()
 		_, ok := artistTitleToIndices[k]
 		if ok {
 			artistTitleToIndices[k] = append(artistTitleToIndices[k], i)
@@ -122,16 +123,19 @@ func replaceEncryptedFiles() error {
 
 	// Sort the Albums slice
 	slices.SortFunc(wr.Albums, common.CmpAlbumInfoAlbumTitle)
-	// create map for searching on album title for AlbumInfo
-	albumToIndices := make(map[string][]int)
+	// Sort the tracks in each AlbumInfo by Disc Number then Track Number
+	for _, album := range wr.Albums {
+		slices.SortFunc(album.Tracks, common.CmpTrackInfoDiscAndTrackNum)
+	}
+	// re-init the map for searching on albumArtist|title for AlbumInfo
+	wr.AlbumArtistBarNameToIndex = make(map[string]int)
 	for i, a := range wr.Albums {
-		k := strings.ToLower(a.Album)
-		_, ok := albumToIndices[k]
-		if ok {
-			albumToIndices[k] = append(albumToIndices[k], i)
+		k := a.GetKey()
+		_, ok := wr.AlbumArtistBarNameToIndex[k]
+		if !ok {
+			wr.AlbumArtistBarNameToIndex[k] = i
 		} else {
-			albumToIndices[k] = make([]int, 1)
-			albumToIndices[k][0] = i
+			fmt.Printf("album key clash at %s\n", k)
 		}
 	}
 
@@ -152,7 +156,7 @@ OUTER:
 		bestIndex := -1
 		// quickest way to matching tracks in well tagged lib, is for
 		// artist|title to match
-		k := strings.ToLower(fmt.Sprintf("%s|%s", drmTrack.Artist, drmTrack.Title))
+		k := drmTrack.GetKey()
 		freeTrackIndices, ok := artistTitleToIndices[k]
 		if ok {
 			// for each matching index, do we have a perfect match?
@@ -172,7 +176,7 @@ OUTER:
 					replacedReportResult.Matches = append(replacedReportResult.Matches,
 						common.FmtTrackMatch(drmTrack, wr.Tracks[i], score, true))
 					continue OUTER
-				} else if score > 0.5 {
+				} else if score > 0.5 && score > bestScore {
 					// Is good enough to hold onto but keep looking
 					bestScore = score
 					bestIndex = i
@@ -224,7 +228,7 @@ OUTER:
 					replacedReportResult.Matches = append(replacedReportResult.Matches,
 						common.FmtTrackMatch(drmTrack, wr.Tracks[i], score, true))
 					continue OUTER
-				} else if score > 0.5 {
+				} else if score > 0.5 && score > bestScore {
 					// Is good enough to hold onto but keep looking
 					bestScore = score
 					bestIndex = i
@@ -255,7 +259,7 @@ OUTER:
 					replacedReportResult.Matches = append(replacedReportResult.Matches,
 						common.FmtTrackMatch(drmTrack, wr.Tracks[i], score, true))
 					continue OUTER
-				} else if score > 0.5 {
+				} else if score > 0.5 && score > bestScore {
 					//fmt.Printf("score: %.2f\n", score)
 					//fmt.Printf("%s | %s\n", drmTrack.Title, wr.Tracks[i].Title)
 					//fmt.Printf("%s | %s\n", drmTrack.Artist, wr.Tracks[i].Artist)
@@ -283,12 +287,51 @@ OUTER:
 				common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, true))
 			continue OUTER
 		} else if bestScore > 0.5 {
+			// tracking our near misses
 			replacedReportResult.Matches = append(replacedReportResult.Matches,
 				common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, false))
 		}
 
-		// if we're here, there is no possible match where the title is exactly the same
-		// TODO is it worth it to find similar titles using binarySearch on the Tracks slice?
+		// If we're here, there is no good match where the title is exactly the same
+
+		// The next best way to look is to see if there is a matching album and then
+		// iterate over the tracks from that album
+		// Check if we have the album by album title exact match
+		drmFreeAlbumIndex, ok := wr.AlbumArtistBarNameToIndex[drmTrack.GetAlbumKey()]
+		if ok {
+			// does a matching track exist at the index?
+			j, found := slices.BinarySearchFunc(wr.Albums[drmFreeAlbumIndex].Tracks,
+				common.TrackInfo{
+					TrackNumber: drmTrack.TrackNumber,
+					DiscNumber:  drmTrack.DiscNumber,
+					TotalTracks: drmTrack.TotalTracks,
+					TotalDiscs:  drmTrack.TotalDiscs,
+				},
+				common.CmpTrackInfoDiscAndTrackNum,
+			)
+			if found {
+				score := common.CmpAlbumTracks(drmTrack, wr.Albums[drmFreeAlbumIndex].Tracks[j])
+				if score > 0.85 {
+					bestScore = score
+					bestIndex = wr.TrackPathToIndex[wr.Albums[drmFreeAlbumIndex].Tracks[j].Path]
+					fmr := common.FileMovedResult{
+						Source: drmPath,
+						Dest:   wr.Tracks[bestIndex].Path,
+					}
+					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+					replacedReportResult.Matches = append(replacedReportResult.Matches,
+						common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, true))
+					continue OUTER
+				} else if score > 0.5 {
+					bestScore = score
+					bestIndex = wr.TrackPathToIndex[wr.Albums[drmFreeAlbumIndex].Tracks[j].Path]
+					replacedReportResult.Matches = append(replacedReportResult.Matches,
+						common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, false))
+				}
+			}
+		}
+
+		// Is it worth it to find similar titles using binarySearch on the Tracks slice?
 	}
 
 	// Sort the matches from best to worst by score
@@ -347,7 +390,7 @@ func isValidExifReport(path string) (bool, exifReport) {
 	return true, r
 }
 
-func createKeyWithTags(path string, info fs.FileInfo, results *common.WalkResults) error {
+func createAlbumAndTrackInfo(path string, info fs.FileInfo, results *common.WalkResults) error {
 	// skip if the file is encrypted or a playlist
 	if common.IsEncryptedFile(path) || common.IsPlaylistFile(path) {
 		return nil
@@ -367,28 +410,34 @@ func createKeyWithTags(path string, info fs.FileInfo, results *common.WalkResult
 		results.Tracks = append(results.Tracks, track)
 		// see if we have a new album
 		// see if the album exists in the Albums slice
-		i, ok := results.AlbumNameToIndex[track.Album]
+		i, ok := results.AlbumArtistBarNameToIndex[track.GetAlbumKey()]
 		if ok {
-			// add the TrackInfo to the AlbumInfo
+			//a := common.AlbumInfo{
+			//	Album:       track.Album,
+			//	Artist:      track.AlbumArtist,
+			//	TotalTracks: track.TotalTracks,
+			//}
+			//as := common.CmpAlbums(a, results.Albums[i])
+			//if as < 1.0 {
+			//	fmt.Printf("%s\n", track.Path)
+			//	fmt.Printf("%+v\n", common.FmtAlbumMatch(a, results.Albums[i], as, as > 0.8))
+			//}
+			// add the TrackInfo to the AlbumInfo.Tracks slice
 			results.Albums[i].Tracks = append(results.Albums[i].Tracks, track)
-			// Default to the largest number of total tracks
-			if results.Albums[i].TotalTracks < track.TotalTracks {
-				results.Albums[i].TotalTracks = track.TotalTracks
-			}
-			// Default to having an AlbumArtist
-			if results.Albums[i].Artist == "" {
-				results.Albums[i].Artist = track.AlbumArtist
+			// Default to the biggest one for total discs
+			if results.Albums[i].TotalDiscs < track.TotalDiscs {
+				results.Albums[i].TotalDiscs = track.TotalDiscs
 			}
 		} else {
 			// save the index where we added the album into the name map
-			results.AlbumNameToIndex[track.Album] = len(results.Albums)
+			results.AlbumArtistBarNameToIndex[track.GetAlbumKey()] = len(results.Albums)
 			a := []common.TrackInfo{track}
 			// create the new album in the results
 			results.Albums = append(results.Albums, common.AlbumInfo{
-				Album:       track.Album,
-				Artist:      track.AlbumArtist,
-				TotalTracks: track.TotalTracks,
-				Tracks:      a,
+				Album:      track.Album,
+				Artist:     track.AlbumArtist,
+				TotalDiscs: track.TotalDiscs,
+				Tracks:     a,
 			})
 		}
 	}
