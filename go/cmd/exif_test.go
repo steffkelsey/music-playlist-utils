@@ -4,13 +4,15 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
+
+	"music-utils/common"
 )
 
 func TestExifTrackToTrackInfo(t *testing.T) {
 	c := qt.New(t)
 	tests := []struct {
 		input    exifTrack
-		expected trackInfo
+		expected common.TrackInfo
 	}{
 		{
 			exifTrack{
@@ -19,13 +21,17 @@ func TestExifTrackToTrackInfo(t *testing.T) {
 				AlbumArtist: "88 artists",
 				Album:       "artist 1 live",
 				TrackNumber: "1 of 18",
+				DiscNumber:  "1 of 1",
 				Duration:    "0:04:53",
 			},
-			trackInfo{
+			common.TrackInfo{
 				Title:           "track 1",
 				Artist:          "artist 1",
-				TrackNumber:     "1",
-				TotalTracks:     "18",
+				AlbumArtist:     "88 artists",
+				DiscNumber:      1,
+				TotalDiscs:      1,
+				TrackNumber:     1,
+				TotalTracks:     18,
 				Album:           "artist 1 live",
 				DurationSeconds: 293,
 			},
@@ -39,11 +45,12 @@ func TestExifTrackToTrackInfo(t *testing.T) {
 				TrackNumber: "19 of 19",
 				Duration:    "0:01:01",
 			},
-			trackInfo{
+			common.TrackInfo{
 				Title:           "track 19",
 				Artist:          "The Boss",
-				TrackNumber:     "19",
-				TotalTracks:     "19",
+				AlbumArtist:     "The Boss and the Band",
+				TrackNumber:     19,
+				TotalTracks:     19,
 				Album:           "That Sad One",
 				DurationSeconds: 61,
 			},
@@ -54,14 +61,17 @@ func TestExifTrackToTrackInfo(t *testing.T) {
 				Artist:      "The Boss",
 				AlbumArtist: "The Boss and the Band",
 				Album:       "That Sad One",
+				DiscNumber:  1,
 				TrackNumber: 19,
 				Duration:    "0:01:01",
 			},
-			trackInfo{
+			common.TrackInfo{
 				Title:           "track 19",
 				Artist:          "The Boss",
-				TrackNumber:     "19",
-				TotalTracks:     "",
+				AlbumArtist:     "The Boss and the Band",
+				DiscNumber:      1,
+				TrackNumber:     19,
+				TotalTracks:     0,
 				Album:           "That Sad One",
 				DurationSeconds: 61,
 			},
