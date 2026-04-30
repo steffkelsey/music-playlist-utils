@@ -164,3 +164,49 @@ exiftool -j <filename>
 }]
 ```
 
+### Test data for comparing Tracks and Albums
+
+```json
+{
+    "track1": {
+        "title":"Master Blaster (Jammin')",
+        "artist":"Stevie Wonder",
+        "trackNumber": 3,
+        "totalTracks": 8,
+        "album": "Stevie Wonder's Original Musiquarium I (Reissue)",
+        "albumArtist": "Stevie Wonder",
+        "durationSeconds": 308
+    },
+    "track2": {
+        "title": "Master Blaster (Jammin')",
+        "artist": "Stevie Wonder",
+        "trackNumber": 3,
+        "totalTracks": 8,
+        "album": "Original Musiquarium I",
+        "albumArtist": "Stevie Wonder",
+        "durationSeconds": 308
+    }
+}
+```
+```base64
+"eyJ0cmFjazEiOnsidGl0bGUiOiJNYXN0ZXIgQmxhc3RlciAoSmFtbWluJykiLCJhcnRpc3QiOiJTdGV2aWUgV29uZGVyIiwidHJhY2tOdW1iZXIiOjMsInRvdGFsVHJhY2tzIjo4LCJhbGJ1bSI6IlN0ZXZpZSBXb25kZXIncyBPcmlnaW5hbCBNdXNpcXVhcml1bSBJIChSZWlzc3VlKSIsImFsYnVtQXJ0aXN0IjoiU3RldmllIFdvbmRlciIsImR1cmF0aW9uU2Vjb25kcyI6MzA4fSwidHJhY2syIjp7InRpdGxlIjoiTWFzdGVyIEJsYXN0ZXIgKEphbW1pbicpIiwiYXJ0aXN0IjoiU3RldmllIFdvbmRlciIsInRyYWNrTnVtYmVyIjozLCJ0b3RhbFRyYWNrcyI6OCwiYWxidW0iOiJPcmlnaW5hbCBNdXNpcXVhcml1bSBJIiwiYWxidW1BcnRpc3QiOiJTdGV2aWUgV29uZGVyIiwiZHVyYXRpb25TZWNvbmRzIjozMDh9fQ=="
+```
+
+```json
+{
+    "album1": {
+        "album": "Totally Different",
+		"artist": "some guy",
+		"totalDiscs": 6
+	},
+    "album2": {
+        "album": "Album 1",
+		"artist": "artist 1",
+		"totalDiscs": 1
+	}
+}
+```
+
+```base64
+"eyJhbGJ1bTEiOnsiYWxidW0iOiJUb3RhbGx5IERpZmZlcmVudCIsImFydGlzdCI6InNvbWUgZ3V5IiwidG90YWxEaXNjcyI6Nn0sImFsYnVtMiI6eyJhbGJ1bSI6IkFsYnVtIDEiLCJhcnRpc3QiOiJhcnRpc3QgMSIsInRvdGFsRGlzY3MiOjF9fQ=="
+```
