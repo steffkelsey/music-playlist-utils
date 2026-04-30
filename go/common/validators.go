@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 )
@@ -16,4 +17,20 @@ func FlagDirectoryExists(flagDir string) (string, error) {
 		return "", fmt.Errorf("file or directory does not exist at %s", flagDir)
 	}
 	return flagDir, nil
+}
+
+func FlagBase64DataIsGood(flagData string) ([]byte, error) {
+	var res []byte
+	// Verify that data exists
+	if len(flagData) == 0 {
+		return res, fmt.Errorf("data is empty")
+	}
+
+	// Verify it is valid base64 encoding
+	var err error
+	res, err = base64.StdEncoding.DecodeString(flagData)
+	if err != nil {
+		return res, err
+	}
+	return res, nil
 }
