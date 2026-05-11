@@ -62,3 +62,18 @@ jobs:
         run: |
           export PATH=$PATH:$HOME/bin:$HOME/go/bin
           make test
+
+  python-lint:
+    needs: changes
+    if: ${{ needs.changes.outputs.python == 'true' }}
+    name: Python Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+            working-directory: ./python
+      - name: ruff-lint
+        run: uv run ruff check .
+        working-directory: ./python
