@@ -16,7 +16,8 @@ import (
 
 type organizedReport struct {
 	movedReport
-	Untagged []untaggedResult `json:"untagged"`
+	Untagged   []untaggedResult    `json:"untagged"`
+	Duplicates map[string][]string `json:"duplicates"`
 }
 
 var organizedReportResult organizedReport
@@ -66,6 +67,7 @@ func organizeMusicFiles() error {
 	organizedReportResult = organizedReport{
 		movedReport: movedReport{Moved: make([]common.FileMovedResult, 0)},
 		Untagged:    make([]untaggedResult, 0),
+		Duplicates:  make(map[string][]string),
 	}
 	_, err := common.WalkAllMusicFiles(inputDir, createDestinationFromTags)
 	if err != nil {
@@ -87,12 +89,28 @@ func organizeMusicFiles() error {
 			organizedReportResult.Moved = append(organizedReportResult.Moved[:i], organizedReportResult.Moved[i+1:]...)
 			continue
 		} else {
+			// add everything to the duplicates map (to be trimmed later)
+			_, hasDest := organizedReportResult.Duplicates[m.Dest]
+			if hasDest {
+				organizedReportResult.Duplicates[m.Dest] = append(organizedReportResult.Duplicates[m.Dest], m.Source)
+			} else {
+				organizedReportResult.Duplicates[m.Dest] = []string{m.Source}
+			}
 			organizedReportResult.Moved[i].Dest = m.Dest
 		}
+		// Iterate over the duplicates map and remove all that have
+		// less than 2 sources per dest
+		for k, v := range organizedReportResult.Duplicates {
+			if len(v) < 2 {
+				delete(organizedReportResult.Duplicates, k)
+			}
+		}
+
 		if !isDryRun {
-			// TODO any overwrite warnings?
+			// Block overwrite by changing the filename if a file already exists
+			finalDest := common.FindFileNameNoOverWrite(m.Dest)
 			// copy Source -> Dest (function handles creation of directories etc)
-			err := common.CopyFile(m.Source, m.Dest)
+			err := common.CopyFile(m.Source, finalDest)
 			fmt.Printf("+ %s\n", m.Dest)
 			if err != nil {
 				// update the report by removing this file from Moved
