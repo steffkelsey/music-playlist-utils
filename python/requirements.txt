@@ -1,9 +1,0 @@
-argcomplete==3.6.3
-brotli==1.2.0
-mutagen==1.47.0
-packaging==26.1
-pipx==1.11.1
-platformdirs==4.9.6
-pycryptodomex==3.23.0
-userpath==1.9.2
-websockets==16.0
