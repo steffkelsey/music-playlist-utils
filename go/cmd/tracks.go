@@ -10,8 +10,10 @@ import (
 )
 
 type compareTracksRequest struct {
-	Track1 common.TrackInfo `json:"track1"`
-	Track2 common.TrackInfo `json:"track2"`
+	Track1    common.TrackInfo `json:"track1"`
+	Track2    common.TrackInfo `json:"track2"`
+	CmpType   string           `json:"compareType"`
+	Threshold float64          `json:"threshold"`
 }
 
 type compareTracksResponse struct {
@@ -47,10 +49,22 @@ func compareTracks() error {
 	if err != nil {
 		return err
 	}
-	score := common.CmpAlbumTracks(r.Track1, r.Track2)
+	// Set the default value for threshold to 0.85
+	if r.Threshold < 0.0001 {
+		r.Threshold = 0.85
+	}
+	var score float64
+	switch r.CmpType {
+	case "track":
+		score = common.CmpTracks(r.Track1, r.Track2)
+	case "album":
+		fallthrough
+	default:
+		score = common.CmpTracksWithAlbumInfo(r.Track1, r.Track2)
+	}
 
 	var response compareTracksResponse
-	response.TrackMatch = common.FmtTrackMatch(r.Track1, r.Track2, score, score > 0.85)
+	response.TrackMatch = common.FmtTrackMatch(r.Track1, r.Track2, score, score > r.Threshold)
 
 	j, err := json.MarshalIndent(&response, "", "  ")
 	if err != nil {

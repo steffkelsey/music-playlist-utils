@@ -10,12 +10,15 @@ import (
 )
 
 type compareAlbumsRequest struct {
-	Album1 common.AlbumInfo `json:"album1"`
-	Album2 common.AlbumInfo `json:"album2"`
+	Album1    common.AlbumInfo `json:"album1"`
+	Album2    common.AlbumInfo `json:"album2"`
+	CmpType   string           `json:"compareType"`
+	Threshold float64          `json:"threshold"`
 }
 
 type compareAlbumsResponse struct {
 	common.AlbumMatch
+	TrackMatchIndexes map[int]int `json:"trackMatchIndexes"`
 }
 
 var albumsCmd = &cobra.Command{
@@ -46,10 +49,24 @@ func compareAlbums() error {
 	if err != nil {
 		return err
 	}
-	score := common.CmpAlbums(r.Album1, r.Album2)
+	if r.Threshold < 0.001 {
+		r.Threshold = 0.85
+	}
+	var score float64
+	var indexMatchMap map[int]int
+	switch r.CmpType {
+	case "ignoretracks":
+		score = common.CmpAlbums(r.Album1, r.Album2)
+	case "tracks":
+		fallthrough
+	default:
+		score, indexMatchMap = common.CmpAlbumsWithTracks(r.Album1, r.Album2, 0.7)
+	}
 
-	var response compareAlbumsResponse
-	response.AlbumMatch = common.FmtAlbumMatch(r.Album1, r.Album2, score, score > 0.85)
+	response := compareAlbumsResponse{
+		TrackMatchIndexes: indexMatchMap,
+	}
+	response.AlbumMatch = common.FmtAlbumMatch(r.Album1, r.Album2, score, score > r.Threshold)
 
 	j, err := json.MarshalIndent(&response, "", "  ")
 	if err != nil {

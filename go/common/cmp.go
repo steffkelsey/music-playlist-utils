@@ -2,17 +2,20 @@ package common
 
 import (
 	"cmp"
+	//"fmt"
 	"math"
+	"slices"
 	"strings"
 	"unicode"
 )
 
 type AlbumMatch struct {
-	Score      float64 `json:"score"`
-	Titles     string  `json:"titles"`
-	Artists    string  `json:"artists"`
-	TotalDiscs string  `json:"totalDiscs"`
-	Success    bool    `json:"success"`
+	Score       float64 `json:"score"`
+	Titles      string  `json:"titles"`
+	Artists     string  `json:"artists"`
+	TotalDiscs  string  `json:"totalDiscs"`
+	TotalTracks string  `json:"totalTracks"`
+	Success     bool    `json:"success"`
 }
 
 type TrackMatch struct {
@@ -79,22 +82,28 @@ func IsFuzzyMatch(s1 string, s2 string) (float64, float64) {
 	return r1, r2
 }
 
+// Compares to AblumInfo objects, ignoring tracks
 func CmpAlbums(a1, a2 AlbumInfo) float64 {
 	titleScore := Bool2Float(IsExactMatch(a1.Album, a2.Album))
 	artistScore := Bool2Float(IsExactMatch(a1.Artist, a2.Artist))
 	totalDiscsScore := Bool2Float(a1.TotalDiscs == a2.TotalDiscs)
+	var totalTracksScore float64
+	diff := a1.TotalTracks - a2.TotalTracks
+	if diff == 0 {
+		totalTracksScore = 1.0
+	} else {
+		totalTracksScore = 1 - math.Min((math.Abs(float64(diff))/3.0), 1.0)
+	}
 
-	sum := titleScore + artistScore + totalDiscsScore
-	perfect := 3.0
+	sum := titleScore + artistScore + totalDiscsScore + totalTracksScore
+	perfect := 4.0
+	if a1.TotalDiscs == 0 || a2.TotalDiscs == 0 {
+		sum = titleScore + artistScore + totalTracksScore
+		perfect = 3.0
+	}
 
 	// A perfect match = exact matches on all
-	if sum < perfect {
-		// A perfect WORST match, return 0.0
-		if sum-0.001 < 0 {
-			return 0.0
-		}
-	} else {
-		// A perfect match, return 1.0
+	if sum+0.001 > perfect {
 		return 1.0
 	}
 
@@ -109,30 +118,93 @@ func CmpAlbums(a1, a2 AlbumInfo) float64 {
 		artistScore = (s1 + s2) * 0.5
 	}
 
-	sum = titleScore + artistScore + totalDiscsScore
+	sum = titleScore + artistScore + totalTracksScore + totalDiscsScore
+	if perfect < 4.0 {
+		sum = titleScore + artistScore + totalTracksScore
+	}
 	return sum / perfect
 }
 
-func CmpAlbumTracks(t1, t2 TrackInfo) float64 {
+// Compares two AlbumInfo objects including how well the tracks match
+// Returns a total score
+// AND a map of album1 trackNumbers to matching album2 trackNumbers
+// where only the best match over a 85% thershold is included
+// This method assumes that both Track slices are sorted
+// by DiscNumber and TrackNumber
+func CmpAlbumsWithTracks(a1, a2 AlbumInfo, trackThreshold float64) (float64, map[int]int) {
+	var score float64
+	a1TrackNumberToA2TrackNumberMap := make(map[int]int)
+
+	// flatten the trackNumbers for each album
+	a1.FlattenTrackNumbers()
+	a2.FlattenTrackNumbers()
+
+	trackScore := 0.0
+	// this is for weighting the score, not for what is actually possible
+	maxMatches := math.Max(float64(a1.TotalTracks), float64(a2.TotalTracks))
+
+	// Iterate over the a1 and search in a2
+	for t1Index, t1 := range a1.Tracks {
+		t2Index, found := slices.BinarySearchFunc(a2.Tracks,
+			TrackInfo{TrackNumber: t1.TrackNumber},
+			CmpTrackInfoTrackNum,
+		)
+		if found {
+			// grab the track
+			t2 := a2.Tracks[t2Index]
+			// score the actual track
+			s := CmpTracksWithAlbumInfo(t1, t2)
+			// if above the threshold
+			if s > trackThreshold {
+				// add to the results map
+				a1TrackNumberToA2TrackNumberMap[t1Index] = t2Index
+				trackScore += s
+			}
+		}
+	}
+	// get the average of all the track scores
+	trackScore = trackScore / maxMatches
+
+	// Get the base score for comparing albums without track data
+	baseScore := CmpAlbums(a1, a2)
+
+	// find a weighted average
+	score = (1.0*baseScore + 3.0*trackScore) / 4.0
+
+	return score, a1TrackNumberToA2TrackNumberMap
+}
+
+func CmpTracksWithAlbumInfo(t1, t2 TrackInfo) float64 {
 	titleScore := Bool2Float(IsExactMatch(t1.Title, t2.Title))
 	albumScore := Bool2Float(IsExactMatch(t1.Album, t2.Album))
 	artistScore := Bool2Float(IsExactMatch(t1.Artist, t2.Artist))
 	albumArtistScore := Bool2Float(IsExactMatch(t1.AlbumArtist, t2.AlbumArtist))
 	trackNumberScore := Bool2Float(t1.TrackNumber == t2.TrackNumber)
-	totalTracksScore := Bool2Float(t1.TotalTracks == t2.TotalTracks)
 	discNumberScore := Bool2Float(t1.DiscNumber == t2.DiscNumber)
 	totalDiscsScore := Bool2Float(t1.TotalDiscs == t2.TotalDiscs)
+	var totalTracksScore float64
+	diff := t1.TotalTracks - t2.TotalTracks
+	if diff == 0 {
+		totalTracksScore = 1.0
+	} else {
+		totalTracksScore = 1 - math.Min((math.Abs(float64(diff))/3.0), 1.0)
+	}
 
 	sum := titleScore + albumScore + artistScore + albumArtistScore + trackNumberScore + totalTracksScore + discNumberScore + totalDiscsScore
 	perfect := 8.0
 
+	if t1.DiscNumber == 0 || t2.DiscNumber == 0 {
+		perfect -= 1.0
+		sum -= discNumberScore
+	}
+
+	if t1.TotalDiscs == 0 || t2.TotalDiscs == 0 {
+		perfect -= 1.0
+		sum -= totalDiscsScore
+	}
+
 	// A perfect match = exact matches on all
-	if sum < perfect {
-		// A perfect WORST match, return 0.0
-		if sum-0.001 < 0 {
-			return 0.0
-		}
-	} else {
+	if sum+0.001 > perfect {
 		// A perfect match, return 1.0
 		return 1.0
 	}
@@ -157,6 +229,14 @@ func CmpAlbumTracks(t1, t2 TrackInfo) float64 {
 	}
 
 	sum = titleScore + albumScore + artistScore + albumArtistScore + trackNumberScore + totalTracksScore + discNumberScore + totalDiscsScore
+
+	if t1.DiscNumber == 0 || t2.DiscNumber == 0 {
+		sum -= discNumberScore
+	}
+
+	if t1.TotalDiscs == 0 || t2.TotalDiscs == 0 {
+		sum -= totalDiscsScore
+	}
 
 	//fmt.Printf("score: %.2f\n", sum/6.0)
 	return sum / perfect
@@ -188,12 +268,7 @@ func CmpTracks(t1, t2 TrackInfo) float64 {
 	perfect := 3.0
 
 	// A perfect match = exact matches on all
-	if sum < perfect {
-		// A perfect WORST match, return 0.0
-		if sum-0.001 < 0 {
-			return 0.0
-		}
-	} else {
+	if sum+0.001 > perfect {
 		// A perfect match, return 1.0
 		return 1.0
 	}
@@ -219,7 +294,17 @@ func CmpAlbumInfoAlbumTitle(a, b AlbumInfo) int {
 	return strings.Compare(strings.ToLower(a.Album), strings.ToLower(b.Album))
 }
 
-// For sorting
+// For sorting/searching where we only care about discNumber
+func CmpTrackInfoDiscNum(a, b TrackInfo) int {
+	return cmp.Compare(a.DiscNumber, b.DiscNumber)
+}
+
+// For sorting/searching where we only care about trackNumber
+func CmpTrackInfoTrackNum(a, b TrackInfo) int {
+	return cmp.Compare(a.TrackNumber, b.TrackNumber)
+}
+
+// for sorting/searching where we want to match both discNumber and trackNumber
 func CmpTrackInfoDiscAndTrackNum(a, b TrackInfo) int {
 	// Sort by discNumber first
 	if n := cmp.Compare(a.DiscNumber, b.DiscNumber); n != 0 {
@@ -245,6 +330,7 @@ func SubstrMagic(a1, a2 []string) float64 {
 		return r
 	}
 
+	// cover if one string has a joining word and the other does not
 	// iterate over the words in a1
 	for i := range a1 {
 		t := make([]string, 0)
@@ -266,6 +352,25 @@ func SubstrMagic(a1, a2 []string) float64 {
 		r2 := scoreSub(tstr, a1str)
 		if r < r2 {
 			r = r2
+		}
+	}
+	// end joining word check
+
+	// covers if one word is spelled wrong in one string
+	if len(a1) == len(a2) {
+		for i := range a1 {
+			t1 := make([]string, 0)
+			t1 = append(t1, a1[:i]...)
+			t1 = append(t1, a1[i+1:]...)
+			t1str := strings.Join(t1, "")
+			t2 := make([]string, 0)
+			t2 = append(t2, a2[:i]...)
+			t2 = append(t2, a2[i+1:]...)
+			t2str := strings.Join(t2, "")
+			r2 := scoreSub(t1str, t2str) * (float64(len(t1str)+len(t2str)) / float64(len(a1str)+len(a2str)))
+			if r < r2 {
+				r = r2
+			}
 		}
 	}
 
@@ -295,7 +400,6 @@ func scoreSub(s1, s2 string) float64 {
 		r = 1.0
 	}
 	return r
-
 }
 
 // For sorting

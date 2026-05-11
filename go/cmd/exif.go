@@ -142,9 +142,13 @@ func findExifData() error {
 		}
 	}
 
+	// sort the albums
+	slices.SortFunc(results.Albums, common.CmpAlbumInfoAlbumTitle)
+
 	// sort the tracks in each album
-	for _, album := range results.Albums {
+	for i, album := range results.Albums {
 		slices.SortFunc(album.Tracks, common.CmpTrackInfoDiscAndTrackNum)
+		results.Albums[i].CalcTotalTracks()
 	}
 
 	// marshal the report to []byte

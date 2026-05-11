@@ -39,6 +39,8 @@ func TestIsFuzzyMatch(t *testing.T) {
 		{"The Stranger", "The Stranger (Remastered)", 0.66, 1.0},
 		{"Rufus & Chaka Khan", "Rufus feat. Chaka Khan", 0.75, 1.0},
 		{"Yazoo", "Yaz", 0.0, 0.85},
+		{"Rufus featuring Chaka Khan", "Rufus feat. Chaka Khan", 0.75, 0.68},
+		{"Little Children (Original Motion Picture Score)", "Little Children (Orginal Motion Picture Score)", 0.83, 0.81}, //nolint:misspell
 	}
 
 	for _, test := range tests {
@@ -57,29 +59,104 @@ func TestCmpAlbums(t *testing.T) {
 	}{
 		{
 			AlbumInfo{
-				Album:      "Album 1",
-				Artist:     "artist 1",
-				TotalDiscs: 1,
+				Album:       "Album 1",
+				Artist:      "artist 1",
+				TotalTracks: 1,
+				TotalDiscs:  1,
 			},
 			AlbumInfo{
-				Album:      "Album 1",
-				Artist:     "artist 1",
-				TotalDiscs: 1,
+				Album:       "Album 1",
+				Artist:      "artist 1",
+				TotalTracks: 1,
+				TotalDiscs:  1,
 			},
 			1.0,
 		},
 		{
 			AlbumInfo{
-				Album:      "Totally Different",
-				Artist:     "some guy",
-				TotalDiscs: 6,
+				Album:       "Totally Different",
+				Artist:      "some guy",
+				TotalTracks: 6,
+				TotalDiscs:  6,
 			},
 			AlbumInfo{
-				Album:      "Album 1",
-				Artist:     "artist 1",
-				TotalDiscs: 1,
+				Album:       "Album 1",
+				Artist:      "artist 1",
+				TotalTracks: 1,
+				TotalDiscs:  1,
 			},
 			0.0,
+		},
+		{
+			AlbumInfo{
+				Album:       "Little Children (Original Motion Picture Score)",
+				Artist:      "Thomas Newman",
+				TotalTracks: 19,
+				TotalDiscs:  1,
+			},
+			AlbumInfo{
+				Album:       "Little Children (Original Motion Picture Score)",
+				Artist:      "Thomas Newman",
+				TotalTracks: 0,
+				TotalDiscs:  0,
+			},
+			0.67,
+		},
+		{
+			AlbumInfo{
+				Album:       "Little Children (Original Motion Picture Score)",
+				Artist:      "Thomas Newman",
+				TotalTracks: 19,
+				TotalDiscs:  1,
+			},
+			AlbumInfo{
+				Album:       "Little Children (Orginal Motion Picture Score)", //nolint:misspell
+				Artist:      "Thomas Newman",
+				TotalTracks: 0,
+				TotalDiscs:  0,
+			},
+			0.61,
+		},
+		{
+			AlbumInfo{
+				Album:       "Alright, Still",
+				Artist:      "Lily Allen",
+				TotalTracks: 14,
+				TotalDiscs:  1,
+			},
+			AlbumInfo{
+				Album:  "Alright, Still",
+				Artist: "Lily Allen",
+			},
+			0.67,
+		},
+		{
+			AlbumInfo{
+				Album:       "Alright, Still",
+				Artist:      "Lily Allen",
+				TotalTracks: 14,
+				TotalDiscs:  1,
+			},
+			AlbumInfo{
+				Album:       "Alright, Still",
+				Artist:      "Lily Allen",
+				TotalTracks: 11,
+			},
+			0.67,
+		},
+		{
+			AlbumInfo{
+				Album:       "Alright, Still",
+				Artist:      "Lily Allen",
+				TotalTracks: 14,
+				TotalDiscs:  1,
+			},
+			AlbumInfo{
+				Album:       "Alright, Still (Bonus Track Version)",
+				Artist:      "Lily Allen",
+				TotalTracks: 13,
+			},
+			0.75,
 		},
 	}
 
@@ -88,7 +165,398 @@ func TestCmpAlbums(t *testing.T) {
 	}
 }
 
-func TestCmpAlbumTracks(t *testing.T) {
+func TestCmpAlbumsWithTracks(t *testing.T) {
+	c := qt.New(t)
+	tests := []struct {
+		a1            AlbumInfo
+		a2            AlbumInfo
+		expectedScore float64
+		expectedMap   map[int]int
+	}{
+		{
+			AlbumInfo{
+				Album:       "Album 1",
+				Artist:      "artist 1",
+				TotalTracks: 1,
+				TotalDiscs:  1,
+				Tracks: []TrackInfo{
+					{
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     1,
+						TotalTracks:     1,
+						Title:           "track 1",
+						Artist:          "artist 1 feat two",
+						Album:           "Album 1",
+						AlbumArtist:     "artist 1",
+						DurationSeconds: 10,
+					},
+				},
+			},
+			AlbumInfo{
+				Album:       "Album 1",
+				Artist:      "artist 1",
+				TotalTracks: 1,
+				TotalDiscs:  1,
+				Tracks: []TrackInfo{
+					{
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     1,
+						TotalTracks:     1,
+						Title:           "track 1",
+						Artist:          "artist 1 feat two",
+						Album:           "Album 1",
+						AlbumArtist:     "artist 1",
+						DurationSeconds: 10,
+					},
+				},
+			},
+			1.0,
+			map[int]int{0: 0}, // match is for slice index
+		},
+		{
+			AlbumInfo{
+				Album:       "Totally Different",
+				Artist:      "some guy",
+				TotalTracks: 6,
+				TotalDiscs:  6,
+				Tracks: []TrackInfo{
+					{
+						DiscNumber:      1,
+						TotalDiscs:      6,
+						TrackNumber:     1,
+						TotalTracks:     2,
+						Title:           "track 1",
+						Artist:          "some guy",
+						Album:           "Totally Different",
+						AlbumArtist:     "some Guy",
+						DurationSeconds: 60,
+					},
+				},
+			},
+			AlbumInfo{
+				Album:       "Album 1",
+				Artist:      "artist 1",
+				TotalTracks: 1,
+				TotalDiscs:  1,
+				Tracks: []TrackInfo{
+					{
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     1,
+						TotalTracks:     1,
+						Title:           "track 1",
+						Artist:          "artist 1",
+						Album:           "Album 1",
+						AlbumArtist:     "artist 1",
+						DurationSeconds: 120,
+					},
+				},
+			},
+			0.0,
+			map[int]int{},
+		},
+		{
+			AlbumInfo{
+				Album:       "Alright, Still",
+				Artist:      "Lily Allen",
+				TotalTracks: 14,
+				TotalDiscs:  1,
+				Tracks: []TrackInfo{
+					{
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     1,
+						TotalTracks:     14,
+						Title:           "Smile",
+						Artist:          "Lily Allen",
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 197,
+					},
+					{
+						Title:           "Knock 'Em Out",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     2,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 174,
+					},
+					{
+						Title:           "LDN",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     3,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 191,
+					},
+					{
+						Title:           "Everythings Just Wonderful",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     4,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 209,
+					},
+					{
+						Title:           "Not Big",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     5,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 197,
+					},
+					{
+						Title:           "Friday Night",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     6,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 187,
+					},
+					{
+						Title:           "Shame for You",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     7,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 246,
+					},
+					{
+						Title:           "Littlest Things",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     8,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 182,
+					},
+					{
+						Title:           "Take What You Take",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     9,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 246,
+					},
+					{
+						Title:           "Friend of Mine",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     10,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 238,
+					},
+					{
+						Title:           "Alfie",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     11,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 165,
+					},
+					{
+						Title:           "Nan You're a Window Shopper",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     12,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 178,
+					},
+					{
+						Title:           "Smile (Version Revisited) [Mark Ronson Remix]",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     13,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 193,
+					},
+					{
+						Title:           "Blank Expression",
+						Artist:          "Lily Allen",
+						DiscNumber:      1,
+						TotalDiscs:      1,
+						TrackNumber:     14,
+						TotalTracks:     14,
+						Album:           "Alright, Still",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 154,
+					},
+				},
+			},
+			AlbumInfo{
+				Album:       "Alright, Still (Bonus Track Version)",
+				Artist:      "Lily Allen",
+				TotalTracks: 13,
+				Tracks: []TrackInfo{
+					{
+						TrackNumber:     1,
+						TotalTracks:     13,
+						Title:           "Smile",
+						Artist:          "Lily Allen",
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 197,
+					},
+					{
+						Title:           "Knock 'Em Out",
+						Artist:          "Lily Allen",
+						TrackNumber:     2,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 174,
+					},
+					{
+						Title:           "LDN",
+						Artist:          "Lily Allen",
+						TrackNumber:     3,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 193,
+					},
+					{
+						Title:           "Everything's Just Wonderful",
+						Artist:          "Lily Allen",
+						TrackNumber:     4,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 209,
+					},
+					{
+						Title:           "Not Big",
+						Artist:          "Lily Allen",
+						TrackNumber:     5,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 197,
+					},
+					{
+						Title:           "Friday Night",
+						Artist:          "Lily Allen",
+						TrackNumber:     6,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 187,
+					},
+					{
+						Title:           "Shame for You",
+						Artist:          "Lily Allen",
+						TrackNumber:     7,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 247,
+					},
+					{
+						Title:           "Littlest Things",
+						Artist:          "Lily Allen",
+						TrackNumber:     8,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 188,
+					},
+					{
+						Title:           "Take What You Take",
+						Artist:          "Lily Allen",
+						TrackNumber:     9,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 247,
+					},
+					{
+						Title:           "Friend of Mine",
+						Artist:          "Lily Allen",
+						TrackNumber:     10,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 238,
+					},
+					{
+						Title:           "Alfie",
+						Artist:          "Lily Allen",
+						TrackNumber:     11,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 167,
+					},
+					{
+						Title:           "Nan You're a Window Shopper",
+						Artist:          "Lily Allen",
+						TrackNumber:     12,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 172,
+					},
+					{
+						Title:           "Smile Version Revisited (Mark Ronson Remix)",
+						Artist:          "Lily Allen",
+						TrackNumber:     13,
+						TotalTracks:     13,
+						Album:           "Alright, Still (Bonus Track Version)",
+						AlbumArtist:     "Lily Allen",
+						DurationSeconds: 196,
+					},
+				},
+			},
+			0.80,
+			map[int]int{0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10, 11: 11, 12: 12},
+		},
+	}
+
+	for _, test := range tests {
+		actualScore, actualMap := CmpAlbumsWithTracks(test.a1, test.a2, 0.70)
+		c.Assert(actualScore, qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expectedScore)
+		c.Assert(actualMap, qt.DeepEquals, test.expectedMap)
+	}
+}
+
+func TestCmpTracksWithAlbumInfo(t *testing.T) {
 	c := qt.New(t)
 	tests := []struct {
 		t1       TrackInfo
@@ -158,7 +626,7 @@ func TestCmpAlbumTracks(t *testing.T) {
 				AlbumArtist:     "Stevie Wonder",
 				DurationSeconds: 308,
 			},
-			0.94,
+			0.91,
 		},
 		{
 			TrackInfo{
@@ -179,7 +647,7 @@ func TestCmpAlbumTracks(t *testing.T) {
 				AlbumArtist:     "Starbuck",
 				DurationSeconds: 218,
 			},
-			0.625,
+			0.5,
 		},
 		{
 			TrackInfo{
@@ -209,7 +677,7 @@ func TestCmpAlbumTracks(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		c.Assert(CmpAlbumTracks(test.t1, test.t2), qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
+		c.Assert(CmpTracksWithAlbumInfo(test.t1, test.t2), qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
 	}
 }
 

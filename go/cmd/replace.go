@@ -17,6 +17,7 @@ import (
 
 type replacedReport struct {
 	Matches []common.TrackMatch `json:"matches"`
+	Failed  []common.TrackMatch `json:"failed"`
 	movedReport
 }
 
@@ -89,6 +90,9 @@ func replaceEncryptedFiles() error {
 		}
 	}
 
+	// Sort the albums in the allExifReport
+	slices.SortFunc(allExifReport.Albums, common.CmpAlbumInfoAlbumTitle)
+
 	// Now, walk all the files in the input folder
 	wr, err := common.WalkAllMusicFiles(inputDir, createAlbumAndTrackInfo)
 	if err != nil {
@@ -124,8 +128,10 @@ func replaceEncryptedFiles() error {
 	// Sort the Albums slice
 	slices.SortFunc(wr.Albums, common.CmpAlbumInfoAlbumTitle)
 	// Sort the tracks in each AlbumInfo by Disc Number then Track Number
-	for _, album := range wr.Albums {
+	for i, album := range wr.Albums {
 		slices.SortFunc(album.Tracks, common.CmpTrackInfoDiscAndTrackNum)
+		// add up the total tracks for all discs in the album
+		wr.Albums[i].CalcTotalTracks()
 	}
 	// re-init the map for searching on albumArtist|title for AlbumInfo
 	wr.AlbumArtistBarNameToIndex = make(map[string]int)
@@ -147,6 +153,9 @@ func replaceEncryptedFiles() error {
 	// And for albums, we can look for matches using the Album title as a key
 	// And we can binary search the Albums slice for fuzzy matches
 
+	// create a map for holding which drmAlbums matched with drmFreeAlbums
+	drmAlbumKeyToDrmFreeAlbumKeyMap := make(map[string]string)
+
 	// iterate over the DRM tracks
 OUTER:
 	for drmPath, drmTrack := range allExifReport.Files {
@@ -164,7 +173,7 @@ OUTER:
 			// if partial match, is it close enough?
 			for _, i := range freeTrackIndices {
 				// check for perfect match
-				score := common.CmpAlbumTracks(drmTrack, wr.Tracks[i])
+				score := common.CmpTracksWithAlbumInfo(drmTrack, wr.Tracks[i])
 				if score+0.001 > 1.0 {
 					// is perfect! search for this track is over!
 					// Save the match in the report in Moved slice
@@ -175,9 +184,10 @@ OUTER:
 					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
 					replacedReportResult.Matches = append(replacedReportResult.Matches,
 						common.FmtTrackMatch(drmTrack, wr.Tracks[i], score, true))
+					drmAlbumKeyToDrmFreeAlbumKeyMap[drmTrack.GetAlbumKey()] = wr.Tracks[i].GetAlbumKey()
 					continue OUTER
-				} else if score > 0.5 && score > bestScore {
-					// Is good enough to hold onto but keep looking
+				} else {
+					// hold onto but keep looking
 					bestScore = score
 					bestIndex = i
 				}
@@ -194,6 +204,7 @@ OUTER:
 			replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
 			replacedReportResult.Matches = append(replacedReportResult.Matches,
 				common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, true))
+			drmAlbumKeyToDrmFreeAlbumKeyMap[drmTrack.GetAlbumKey()] = wr.Tracks[bestIndex].GetAlbumKey()
 			continue OUTER
 		}
 
@@ -216,7 +227,7 @@ OUTER:
 				// check for really good to perfect match
 				// we are still matching across album info here
 				// where track number and total tracks is heavily weighted
-				score := common.CmpAlbumTracks(drmTrack, wr.Tracks[i])
+				score := common.CmpTracksWithAlbumInfo(drmTrack, wr.Tracks[i])
 				if score > 0.85 {
 					// is good enough! search for this track is over!
 					// Save the match in the report in Moved slice
@@ -227,9 +238,10 @@ OUTER:
 					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
 					replacedReportResult.Matches = append(replacedReportResult.Matches,
 						common.FmtTrackMatch(drmTrack, wr.Tracks[i], score, true))
+					drmAlbumKeyToDrmFreeAlbumKeyMap[drmTrack.GetAlbumKey()] = wr.Tracks[i].GetAlbumKey()
 					continue OUTER
-				} else if score > 0.5 && score > bestScore {
-					// Is good enough to hold onto but keep looking
+				} else if score > bestScore {
+					// hold onto but keep looking
 					bestScore = score
 					bestIndex = i
 				}
@@ -258,26 +270,18 @@ OUTER:
 					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
 					replacedReportResult.Matches = append(replacedReportResult.Matches,
 						common.FmtTrackMatch(drmTrack, wr.Tracks[i], score, true))
+					drmAlbumKeyToDrmFreeAlbumKeyMap[drmTrack.GetAlbumKey()] = wr.Tracks[i].GetAlbumKey()
 					continue OUTER
-				} else if score > 0.5 && score > bestScore {
-					//fmt.Printf("score: %.2f\n", score)
-					//fmt.Printf("%s | %s\n", drmTrack.Title, wr.Tracks[i].Title)
-					//fmt.Printf("%s | %s\n", drmTrack.Artist, wr.Tracks[i].Artist)
-					//fmt.Printf("%d | %d\n", drmTrack.DurationSeconds, wr.Tracks[i].DurationSeconds)
-					//fmt.Printf("%s | %s\n", drmTrack.Album, wr.Tracks[i].Album)
-					//fmt.Printf("%s | %s\n", drmTrack.AlbumArtist, wr.Tracks[i].AlbumArtist)
-					//fmt.Printf("%d | %d\n", drmTrack.TrackNumber, wr.Tracks[i].TrackNumber)
-					//fmt.Printf("%d | %d\n", drmTrack.TotalTracks, wr.Tracks[i].TotalTracks)
-					//fmt.Printf("%s\n", wr.Tracks[i].Path)
-					// Is good enough to hold onto but keep looking
+				} else if score > bestScore {
+					// hold onto but keep looking
 					bestScore = score
 					bestIndex = i
 				}
 			}
 		}
 
-		// we're only taking over 85% on this. Might be too low for this type of match?
-		if bestScore > 0.85 {
+		// we're only taking over 82% on this. Might be too low for this type of match?
+		if bestScore > 0.70 {
 			fmr := common.FileMovedResult{
 				Source: drmPath,
 				Dest:   wr.Tracks[bestIndex].Path,
@@ -285,11 +289,8 @@ OUTER:
 			replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
 			replacedReportResult.Matches = append(replacedReportResult.Matches,
 				common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, true))
+			drmAlbumKeyToDrmFreeAlbumKeyMap[drmTrack.GetAlbumKey()] = wr.Tracks[bestIndex].GetAlbumKey()
 			continue OUTER
-		} else if bestScore > 0.5 {
-			// tracking our near misses
-			replacedReportResult.Matches = append(replacedReportResult.Matches,
-				common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, false))
 		}
 
 		// If we're here, there is no good match where the title is exactly the same
@@ -310,8 +311,55 @@ OUTER:
 				common.CmpTrackInfoDiscAndTrackNum,
 			)
 			if found {
-				score := common.CmpAlbumTracks(drmTrack, wr.Albums[drmFreeAlbumIndex].Tracks[j])
-				if score > 0.85 {
+				score := common.CmpTracksWithAlbumInfo(drmTrack, wr.Albums[drmFreeAlbumIndex].Tracks[j])
+				if score > 0.7 {
+					bestScore = score
+					bestIndex = wr.TrackPathToIndex[wr.Albums[drmFreeAlbumIndex].Tracks[j].Path]
+					fmr := common.FileMovedResult{
+						Source: drmPath,
+						Dest:   wr.Tracks[bestIndex].Path,
+					}
+					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
+					replacedReportResult.Matches = append(replacedReportResult.Matches,
+						common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, true))
+					drmAlbumKeyToDrmFreeAlbumKeyMap[drmTrack.GetAlbumKey()] = wr.Tracks[bestIndex].GetAlbumKey()
+					continue OUTER
+				} else if score > bestScore {
+					bestScore = score
+					bestIndex = wr.TrackPathToIndex[wr.Albums[drmFreeAlbumIndex].Tracks[j].Path]
+				}
+			}
+		}
+
+		// If we're here, then there is no exact match on artist|title the first track map
+		// AND
+		// no result on title in the second track map
+		// AND no exact match on album artist|album title in the album map
+		// NO RESULTS IN ANY MAP!
+		// We could have a spelling error or different characters eg: ' vs ’ (subtle)
+		// Hopefully, we have had a lot of matches so far and we can take
+		// advantage of clustering. Meaning if this track was part of an album
+		// with other tracks and those had been matched, we will know about it.
+		drmFreeAlbumKey, ok := drmAlbumKeyToDrmFreeAlbumKeyMap[drmTrack.GetAlbumKey()]
+		if ok {
+			drmFreeAlbumIndex = wr.AlbumArtistBarNameToIndex[drmFreeAlbumKey]
+			// does a matching track exist at the index?
+			// and we're only searching on track number, disc number, total tracks
+			// NOT title, artist because string mtaches would have hit before we got
+			// to this step
+			j, found := slices.BinarySearchFunc(wr.Albums[drmFreeAlbumIndex].Tracks,
+				common.TrackInfo{
+					TrackNumber: drmTrack.TrackNumber,
+					DiscNumber:  drmTrack.DiscNumber,
+					TotalTracks: drmTrack.TotalTracks,
+					TotalDiscs:  drmTrack.TotalDiscs,
+				},
+				common.CmpTrackInfoDiscAndTrackNum,
+			)
+			if found {
+				// we still need a score to be sure
+				score := common.CmpTracksWithAlbumInfo(drmTrack, wr.Albums[drmFreeAlbumIndex].Tracks[j])
+				if score > 0.7 {
 					bestScore = score
 					bestIndex = wr.TrackPathToIndex[wr.Albums[drmFreeAlbumIndex].Tracks[j].Path]
 					fmr := common.FileMovedResult{
@@ -322,20 +370,117 @@ OUTER:
 					replacedReportResult.Matches = append(replacedReportResult.Matches,
 						common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, true))
 					continue OUTER
-				} else if score > 0.5 {
+				}
+			}
+		}
+
+		// The next best idea is to binary search around the album by album
+		// title in the albums slice
+		// First, get the drmAlbum from the exiffReport
+		drmAlbum := common.AlbumInfo{
+			Album: drmTrack.Album,
+		}
+		j, found := slices.BinarySearchFunc(allExifReport.Albums,
+			drmAlbum,
+			common.CmpAlbumInfoAlbumTitle,
+		)
+		if found {
+			drmAlbum = allExifReport.Albums[j]
+		}
+
+		// Then, search for a drmFreeAlbum that matches
+		j, found = slices.BinarySearchFunc(wr.Albums,
+			drmAlbum,
+			common.CmpAlbumInfoAlbumTitle,
+		)
+		albumIndicesToScore := make([]int, 0)
+		if found {
+			// If this one hit, it means the album artist was different/wrong OR
+			// that we have a two different albums with the same title
+			albumIndicesToScore = append(albumIndicesToScore, j)
+		} else {
+			// Not found but j is where it would appear in sort order
+			// The most likely match will be the index before or the index after
+			if j > 0 {
+				albumIndicesToScore = append(albumIndicesToScore, j-1)
+			}
+			if j < len(wr.Albums)-1 {
+				albumIndicesToScore = append(albumIndicesToScore, j+1)
+			}
+		}
+		bestAlbumScore := 0.0
+		bestAlbumIndex := -1
+		for _, j := range albumIndicesToScore {
+			// get a score for the album match, keeping the best one
+			albumScore := common.CmpAlbums(drmAlbum, wr.Albums[j])
+
+			if albumScore > bestAlbumScore {
+				bestAlbumScore = albumScore
+				bestAlbumIndex = j
+			}
+		}
+
+		// Check if the score is high enough to bother looking
+		// at the tracks for this album TODO 80% too high/low?
+		if bestAlbumIndex > 0 && bestAlbumScore > 0.8 {
+			j, found := slices.BinarySearchFunc(wr.Albums[bestAlbumIndex].Tracks,
+				common.TrackInfo{
+					TrackNumber: drmTrack.TrackNumber,
+					DiscNumber:  drmTrack.DiscNumber,
+					TotalTracks: drmTrack.TotalTracks,
+					TotalDiscs:  drmTrack.TotalDiscs,
+				},
+				common.CmpTrackInfoDiscAndTrackNum,
+			)
+			if found {
+				// we still need a score to be sure
+				score := common.CmpTracksWithAlbumInfo(drmTrack, wr.Albums[bestAlbumIndex].Tracks[j])
+				if score > 0.7 {
 					bestScore = score
-					bestIndex = wr.TrackPathToIndex[wr.Albums[drmFreeAlbumIndex].Tracks[j].Path]
+					bestIndex = wr.TrackPathToIndex[wr.Albums[bestAlbumIndex].Tracks[j].Path]
+					fmr := common.FileMovedResult{
+						Source: drmPath,
+						Dest:   wr.Tracks[bestIndex].Path,
+					}
+					replacedReportResult.Moved = append(replacedReportResult.Moved, fmr)
 					replacedReportResult.Matches = append(replacedReportResult.Matches,
-						common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, false))
+						common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, true))
+					continue OUTER
 				}
 			}
 		}
 
 		// Is it worth it to find similar titles using binarySearch on the Tracks slice?
+		// MOST LIKELY NOT!!
+		//j, found := slices.BinarySearchFunc(wr.Tracks,
+		//	drmTrack,
+		//	common.CmpTrackInfoTitle,
+		//)
+		//if found {
+		//	fmt.Printf("FOUND!\n")
+		//} else {
+		//	fmt.Printf("NOT FOUND: j = %d\n", j)
+		//	fmt.Printf("%d: %v\n", j-1, wr.Tracks[j-1])
+		//	fmt.Printf("%d: %v\n", j, wr.Tracks[j])
+		//	fmt.Printf("%d: %v\n", j+1, wr.Tracks[j+1])
+		//}
+
+		// Report that we never found anything
+		if bestIndex > 0 {
+			// match against the best score
+			replacedReportResult.Failed = append(replacedReportResult.Failed,
+				common.FmtTrackMatch(drmTrack, wr.Tracks[bestIndex], bestScore, false))
+		} else {
+			// match against an empty track
+			replacedReportResult.Failed = append(replacedReportResult.Failed,
+				common.FmtTrackMatch(drmTrack, common.TrackInfo{}, 0.0, false))
+		}
 	}
 
 	// Sort the matches from best to worst by score
 	slices.SortFunc(replacedReportResult.Matches, common.CmpTrackMatchScore)
+	// Sort the failed from best to worst by score
+	slices.SortFunc(replacedReportResult.Failed, common.CmpTrackMatchScore)
 
 	if !isDryRun {
 		for _, m := range replacedReportResult.Moved {

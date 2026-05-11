@@ -1,4 +1,9 @@
-on: [push, pull_request]
+name: ci
+on:
+  pull_request:
+  push:
+    branches:
+      - main
 name: Build
 permissions:
   contents: read
