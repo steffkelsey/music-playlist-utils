@@ -6,16 +6,16 @@ https://exiftool.org/install.html#Unix
 
 ## Usage
 
-Call without installing (from ./src directory):  
+Call without installing (from this directory):  
 ```bash
-python -m pymusicutils
+uv run pymusicutils 
 ```
 
 ## Installation
 
-From this folder (using .venv):  
+From this folder:  
 ```bash
-pipx install .
+uv tool install .
 ```
 
 After install, `pymusicutils` is installed in its own env. Can call without 

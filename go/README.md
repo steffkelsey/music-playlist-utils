@@ -8,6 +8,8 @@ organize your music files while keeping playlists up to date.
 
 Starting from a library where everything is unencrypted and tagged properly...
 
+### Finding an repairing broken playlists m3u files
+
 Export your playlist and linked music files into a separate directory.
 
 First, dry-run:  
