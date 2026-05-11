@@ -82,28 +82,22 @@ func organizeMusicFiles() error {
 		// but we're organizing the files in place and the outputDir
 		// is used only for generating the report.
 		m.Dest = filepath.Join(inputDir, m.Dest)
+		// See if there are duplicate destinations before dealing with files
+		// that are NOT moving, otherwise we miss possible duplicates.
+		// Add everything to the duplicates map (to be trimmed later)
+		_, hasDest := organizedReportResult.Duplicates[m.Dest]
+		if hasDest {
+			organizedReportResult.Duplicates[m.Dest] = append(organizedReportResult.Duplicates[m.Dest], m.Source)
+		} else {
+			organizedReportResult.Duplicates[m.Dest] = []string{m.Source}
+		}
+		organizedReportResult.Moved[i].Dest = m.Dest
 		// if the Source == Dest, then we should NOT do anything
 		// OR we risk deleting the track if the code path continues
 		if strings.EqualFold(m.Dest, m.Source) {
 			// update the report by removing this file from Moved
 			organizedReportResult.Moved = append(organizedReportResult.Moved[:i], organizedReportResult.Moved[i+1:]...)
 			continue
-		} else {
-			// add everything to the duplicates map (to be trimmed later)
-			_, hasDest := organizedReportResult.Duplicates[m.Dest]
-			if hasDest {
-				organizedReportResult.Duplicates[m.Dest] = append(organizedReportResult.Duplicates[m.Dest], m.Source)
-			} else {
-				organizedReportResult.Duplicates[m.Dest] = []string{m.Source}
-			}
-			organizedReportResult.Moved[i].Dest = m.Dest
-		}
-		// Iterate over the duplicates map and remove all that have
-		// less than 2 sources per dest
-		for k, v := range organizedReportResult.Duplicates {
-			if len(v) < 2 {
-				delete(organizedReportResult.Duplicates, k)
-			}
 		}
 
 		if !isDryRun {
@@ -126,6 +120,15 @@ func organizeMusicFiles() error {
 			fmt.Printf("- %s\n", m.Source)
 		}
 	}
+
+	// Iterate over the duplicates map and remove all that have
+	// less than 2 sources per dest
+	for k, v := range organizedReportResult.Duplicates {
+		if len(v) < 2 {
+			delete(organizedReportResult.Duplicates, k)
+		}
+	}
+
 	j, _ := json.MarshalIndent(&organizedReportResult, "", "  ")
 	jsonString := string(j)
 	if isDryRun {
@@ -174,25 +177,42 @@ func createDestinationFromTags(path string, info fs.FileInfo, results *common.Wa
 	if !ok {
 		organizedReportResult.Untagged = append(organizedReportResult.Untagged, r)
 		results.Files = append(results.Files, path)
-	} else {
-		// Desired destination is:
-		// ./[Album Artist]/[Album]/[Track Number] - [Title].ext
-		// BUT we want to optimize that the music tracks of the
-		// same album are in the same folder for Jellyfin (for serving)
-		// or Picard (for tag editing).
-		// So we are going to start with:
-		// ./[Album Artist]/[Album]/[Track Number] - [Artist] - [Title].ext
-		albumArtist := strings.ReplaceAll(track.AlbumArtist, "/", "_")
-		album := strings.ReplaceAll(track.Album, "/", "_")
-		filename := strings.ReplaceAll(fmt.Sprintf("%02d - %s - %s%s", track.TrackNumber, track.Artist, track.Title, filepath.Ext(path)), "/", "_")
-		dest := fmt.Sprintf("./%s/%s/%s", albumArtist, album, filename)
-		// replace strictly forbidden characters in the filename
-		m := common.FileMovedResult{
-			Source: path,
-			Dest:   dest,
-		}
-		organizedReportResult.Moved = append(organizedReportResult.Moved, m)
 	}
+	// Desired destination is:
+	// ./[Album Artist]/[Album]/[Track Number] - [Title].ext
+	// BUT we want to optimize that the music tracks of the
+	// same album are in the same folder for Jellyfin (for serving)
+	// or Picard (for tag editing).
+	// So we are going to start with:
+	// ./[Album Artist]/[Album]/[Track Number] - [Artist] - [Title].ext
+	albumArtist := strings.ReplaceAll(track.AlbumArtist, "/", "_")
+	albumArtist = strings.ReplaceAll(albumArtist, "...", "_")
+	albumArtist = strings.ReplaceAll(albumArtist, "..", "_")
+	if albumArtist == "" {
+		albumArtist = "Unknown Artist"
+	}
+	album := strings.ReplaceAll(track.Album, "/", "_")
+	album = strings.ReplaceAll(album, "...", "_")
+	album = strings.ReplaceAll(album, "..", "_")
+	if album == "" {
+		album = "Unknown Album"
+	}
+	if track.Artist == "" {
+		track.Artist = "Unknown Artist"
+	}
+	filename := strings.ReplaceAll(fmt.Sprintf("%02d - %s - %s%s", track.TrackNumber, track.Artist, track.Title, filepath.Ext(path)), "/", "_")
+	filename = strings.ReplaceAll(filename, "...", "_")
+	filename = strings.ReplaceAll(filename, "..", "_")
+	dest := fmt.Sprintf("./%s/%s/%s", albumArtist, album, filename)
+	if track.TotalDiscs > 1 {
+		dest = fmt.Sprintf("./%s/%s/Disc %d/%s", albumArtist, album, track.DiscNumber, filename)
+	}
+	// replace strictly forbidden characters in the filename
+	m := common.FileMovedResult{
+		Source: path,
+		Dest:   dest,
+	}
+	organizedReportResult.Moved = append(organizedReportResult.Moved, m)
 
 	return nil
 }

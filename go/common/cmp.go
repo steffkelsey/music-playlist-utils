@@ -4,7 +4,9 @@ import (
 	"cmp"
 	//"fmt"
 	"math"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -112,6 +114,17 @@ func CmpAlbums(a1, a2 AlbumInfo) float64 {
 	if titleScore < 1.0 {
 		s1, s2 := IsFuzzyMatch(a1.Album, a2.Album)
 		titleScore = (s1 + s2) * 0.5
+		// Check if we have a Vol. 1 vs Vol. 2 situation
+		re := regexp.MustCompile(`Vol(ume)?\.?\s?\d+$`)
+		if re.MatchString(a1.Album) && re.MatchString(a2.Album) {
+			// if the last characters in the titles are NOT matching digits,
+			// reduce the score by 90%
+			a1LastChar, err1 := strconv.Atoi(a1.Album[len(a1.Album)-1:])
+			a2LastChar, err2 := strconv.Atoi(a2.Album[len(a2.Album)-1:])
+			if err1 == nil && err2 == nil && a1LastChar != a2LastChar {
+				titleScore -= 0.9
+			}
+		}
 	}
 	if artistScore < 1.0 {
 		s1, s2 := IsFuzzyMatch(a1.Artist, a2.Artist)
@@ -294,6 +307,11 @@ func CmpAlbumInfoAlbumTitle(a, b AlbumInfo) int {
 	return strings.Compare(strings.ToLower(a.Album), strings.ToLower(b.Album))
 }
 
+// For sorting/searching where we only care about bitrate
+func CmpTrackInfoBitRate(a, b TrackInfo) int {
+	return cmp.Compare(a.BitRate, b.BitRate)
+}
+
 // For sorting/searching where we only care about discNumber
 func CmpTrackInfoDiscNum(a, b TrackInfo) int {
 	return cmp.Compare(a.DiscNumber, b.DiscNumber)
@@ -405,4 +423,14 @@ func scoreSub(s1, s2 string) float64 {
 // For sorting
 func CmpTrackMatchScore(a, b TrackMatch) int {
 	return -1 * cmp.Compare(a.Score, b.Score)
+}
+
+// For sorting
+func CmpFileMovedResults(a, b FileMovedResult) int {
+	// Sort by Source first
+	if n := strings.Compare(a.Source, b.Source); n != 0 {
+		return n
+	}
+	// If Source is equal, compare by Dest
+	return strings.Compare(a.Dest, b.Dest)
 }

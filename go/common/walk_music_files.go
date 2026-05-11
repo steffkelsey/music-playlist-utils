@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -98,12 +99,16 @@ func (a *AlbumInfo) IsDiscComplete(n int) bool {
 	return false
 }
 
+func (a *AlbumInfo) GetExactKey() string {
+	return strings.ToLower(fmt.Sprintf("%s|%s", a.Artist, a.Album))
+}
+
 func (a *AlbumInfo) GetKey() string {
 	return StripToughToMatchChars(strings.ToLower(fmt.Sprintf("%s|%s", a.Artist, a.Album)))
 }
 
 type TrackInfo struct {
-	Path            string `json:"-"`
+	Path            string `json:"path"`
 	Title           string `json:"title"`
 	Artist          string `json:"artist"`
 	DiscNumber      int    `json:"discNumber"`
@@ -113,14 +118,32 @@ type TrackInfo struct {
 	Album           string `json:"album"`
 	AlbumArtist     string `json:"albumArtist"`
 	DurationSeconds int    `json:"durationSeconds"`
+	BitRate         int    `json:"bitRate"`
 }
 
 func (t TrackInfo) GetAlbumKey() string {
-	return StripToughToMatchChars(strings.ToLower(fmt.Sprintf("%s|%s", t.AlbumArtist, t.Album)))
+	return StripToughToMatchChars(t.GetExactAlbumKey())
+}
+
+func (t TrackInfo) GetExactAlbumKey() string {
+	return strings.ToLower(fmt.Sprintf("%s|%s", t.AlbumArtist, t.Album))
 }
 
 func (t TrackInfo) GetKey() string {
 	return StripToughToMatchChars(strings.ToLower(fmt.Sprintf("%s|%s", t.Artist, t.Title)))
+}
+
+func (t TrackInfo) FilenameScore() int {
+	score := 100
+	// get the filename with no extension
+	filename := filepath.Base(t.Path)
+	filename = strings.TrimSuffix(filename, filepath.Ext(filename))
+	// test to see if it ends in something like (1)
+	isDupeName, _ := regexp.MatchString(`\({1}\d+\){1}$`, filename)
+	if isDupeName {
+		score -= 10
+	}
+	return score
 }
 
 type WalkResults struct {

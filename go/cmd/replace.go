@@ -545,10 +545,6 @@ func createAlbumAndTrackInfo(path string, info fs.FileInfo, results *common.Walk
 	if !ok {
 		return nil
 	} else {
-		// append to the Files in the result (might need it)
-		results.Files = append(results.Files, path)
-		// update the count
-		results.Count++
 		// Update the map of path to index in the Tracks slice
 		results.TrackPathToIndex[path] = len(results.Tracks)
 		// append the track
