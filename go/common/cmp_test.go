@@ -158,6 +158,36 @@ func TestCmpAlbums(t *testing.T) {
 			},
 			0.75,
 		},
+		{ // Expect Vol. 1 and Vol. 2 to have dramatic separation even if the totalTracks match
+			AlbumInfo{
+				Album:       "R&B Christmas Vol. 1",
+				Artist:      "Various Artists",
+				TotalTracks: 14,
+				TotalDiscs:  1,
+			},
+			AlbumInfo{
+				Album:       "R&B Christmas Vol. 2",
+				Artist:      "Various Artists",
+				TotalTracks: 14,
+				TotalDiscs:  1,
+			},
+			0.75,
+		},
+		{
+			AlbumInfo{
+				Album:       "R&B Christmas Vol. 1",
+				Artist:      "Various Artists",
+				TotalTracks: 14,
+				TotalDiscs:  1,
+			},
+			AlbumInfo{
+				Album:       "R&B Christmas Vol. 1",
+				Artist:      "Various Artists",
+				TotalTracks: 14,
+				TotalDiscs:  1,
+			},
+			1.0,
+		},
 	}
 
 	for _, test := range tests {
@@ -797,22 +827,6 @@ func TestCmpTracks(t *testing.T) {
 		c.Assert(CmpTracks(test.t1, test.t2), qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
 	}
 }
-
-//func TestGetDuration(t *testing.T) {
-//	c := qt.New(t)
-//	tests := []struct {
-//		input    string
-//		expected float64
-//	}{
-//		{"/samples/The New Danger/01 - The Boogie Man Song.mp3", 143.06},
-//		{"/samples/Togetherness/01 - L.T.D. - Holding On (When Love Is Gone).m4a", 238.75},
-//	}
-//
-//	for _, test := range tests {
-//		actual, err := GetDuration(test.input)
-//		c.Assert(actual, qt.CmpEquals(cmpopts.EquateApprox(0, 0.01)), test.expected)
-//	}
-//}
 
 func TestSubstrMagic(t *testing.T) {
 	c := qt.New(t)

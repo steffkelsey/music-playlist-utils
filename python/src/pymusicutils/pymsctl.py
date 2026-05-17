@@ -323,8 +323,10 @@ def pymsctl(
 
     # iterate over each yt_playlist and download with yt-dlp
     for pid in playlistIdsToDownload:
+        #ret_val = subprocess.call(
+        #    f'yt-dlp --cookies {cookies_txt} -P {output_dir} -o "%(album)s/%(autonumber)02d - %(track)s.%(ext)s" -x --audio-format mp3 --add-metadata "https://music.youtube.com/playlist?list={pid}"',
         ret_val = subprocess.call(
-            f'yt-dlp --cookies {cookies_txt} -P {output_dir} -o "%(album)s/%(autonumber)02d - %(track)s.%(ext)s" -x --audio-format mp3 --add-metadata "https://music.youtube.com/playlist?list={pid}"',
+            f'yt-dlp --cookies {cookies_txt} -P {output_dir} -o "%(album)s/%(autonumber)02d - %(track)s.%(ext)s" -f \'ba/b\' -x --add-metadata "https://music.youtube.com/playlist?list={pid}"',
             shell=True,
         )
 

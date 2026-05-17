@@ -27,6 +27,25 @@ type repairPlaylistsReport struct {
 	Failed   []validatePlaylistResult `json:"failed"`
 }
 
+func (m *movedReport) RemoveDuplicates() {
+	if len(m.Moved) < 2 {
+		return
+	}
+	slices.SortFunc(m.Moved, common.CmpFileMovedResults)
+	j := 0
+	for i := 1; i < len(m.Moved); i++ {
+		if m.Moved[j] == m.Moved[i] {
+			continue
+		}
+		j++
+		// preserve the original data
+		// m.Moved[i], m.Moved[j] = m.Moved[j], m.Moved[i]
+		// only set what is required
+		m.Moved[j] = m.Moved[i]
+	}
+	m.Moved = m.Moved[:j+1]
+}
+
 var repairCmd = &cobra.Command{
 	Use:   "repair",
 	Short: "Repairs broken links in one or more playlists",
@@ -109,10 +128,18 @@ music-utils playlist repair -r -i $HOME/Music -c $HOME/Music/report.json
 			if isDryRun {
 				// Simulate repair by going through the bad paths in the validation result
 				for a, b := range slices.Backward(invalid.BadPaths) {
-					_, ok := sourceToDestMap[b]
-					if ok {
-						// remove from bad paths slice
-						invalid.BadPaths = append(invalid.BadPaths[:a], invalid.BadPaths[a+1:]...)
+					ok := true
+					// Iterate here because a file may have moved more than once across
+					// movedReports
+					for ok {
+						destPath, ok := sourceToDestMap[b]
+						if ok {
+							// remove from bad paths slice
+							invalid.BadPaths = append(invalid.BadPaths[:a], invalid.BadPaths[a+1:]...)
+							// update the bad path to be the destPath to test on the next loop
+							// in case the file moved more than once across reports
+							b = destPath
+						}
 					}
 				}
 				if len(invalid.BadPaths) == 0 {
@@ -179,7 +206,7 @@ music-utils playlist repair -r -i $HOME/Music -c $HOME/Music/report.json
 		results.Failed = append(results.Failed, validateResults.Invalid...)
 
 		// print the json repair report
-		j, _ := json.Marshal(&results)
+		j, _ := json.MarshalIndent(&results, "", "  ")
 		fmt.Println(string(j))
 		return nil
 	},

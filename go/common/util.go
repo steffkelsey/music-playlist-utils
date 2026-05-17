@@ -1,14 +1,17 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"unsafe"
 
-	"github.com/hcl/audioduration"
+	"github.com/lizc2003/audioduration"
 )
 
 func Bool2Float(b bool) float64 {
@@ -17,6 +20,14 @@ func Bool2Float(b bool) float64 {
 
 func Bool2int(b bool) int {
 	return int(*(*byte)(unsafe.Pointer(&b)))
+}
+
+func MaxInt(a, b int) int {
+	return int(math.Max(float64(a), float64(b)))
+}
+
+func MinInt(a, b int) int {
+	return int(math.Min(float64(a), float64(b)))
 }
 
 func GetDuration(path string) (float64, error) {
@@ -30,12 +41,65 @@ func GetDuration(path string) (float64, error) {
 	case ExtMp3:
 		return audioduration.Duration(f, audioduration.TypeMp3)
 	case ExtM4a:
-		return audioduration.Duration(f, audioduration.TypeMp4)
+		fallthrough
 	case ExtMp4:
 		return audioduration.Duration(f, audioduration.TypeMp4)
+	case ExtOpus:
+		// The audioduration lib does not seem to support Opus at this time.
+		// Tried an OGG container, but got all negative values.
+		return 0.0, fmt.Errorf("audioduration lib does not support OpusOgg")
 	}
 
 	return 0.0, fmt.Errorf("cannot find duration for that filetype")
+}
+
+func GetDurationAndBitRate(path string) (float64, int, error) {
+	var duration float64
+	var bitRate int
+
+	d, err := ffprobe(path)
+	if err != nil {
+		return duration, bitRate, err
+	}
+
+	var f FFProbeFormatResponse
+	// unmarshal the response data
+	err = json.Unmarshal(d, &f)
+	if err != nil {
+		return duration, bitRate, err
+	}
+	duration, _ = strconv.ParseFloat(f.Format.Duration, 64)
+	bitRate, _ = strconv.Atoi(f.Format.BitRate)
+
+	return duration, bitRate, nil
+}
+
+// Uses the fast audioduration lib and falls back to the slower ffprobe method
+// on error. Bundled to return a string in the format of FFProbeFormatResponse.
+func GetDurationString(path string) (string, error) {
+	var response string
+	// try the fast method
+	d, err := GetDuration(path)
+	if err != nil {
+		// use FFProbe
+		response, err = FFProbeForString(path)
+		if err != nil {
+			return response, err
+		}
+	} else {
+		// put the duration into a FFProbeFromatResponse
+		r := FFProbeFormatResponse{
+			Format: FFProbeDurationAndBitRateResponse{
+				Duration: fmt.Sprintf("%.2f", d),
+				Filename: path,
+			},
+		}
+		// marshal into the json
+		j, _ := json.Marshal(&r)
+		// convert to string
+		response = string(j)
+	}
+	return response, nil
 }
 
 func FmtAlbumMatch(a1, a2 AlbumInfo, score float64, success bool) AlbumMatch {

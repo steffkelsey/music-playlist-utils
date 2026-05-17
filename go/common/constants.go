@@ -20,6 +20,7 @@ const (
 	ExtM4a  = ".m4a"
 	ExtM4p  = ".m4p"
 	ExtM3u  = ".m3u"
+	ExtOpus = ".opus"
 
 	Continue   = 0
 	ConfirmAll = 1
@@ -45,7 +46,12 @@ func IsMusicFile(path string) bool {
 	// Get file extension
 	ext := strings.ToLower(filepath.Ext(path))
 	// Check if it fits the type we care about
-	if ext == ExtMp3 || ext == ExtMp4 || ext == ExtM4a || ext == ExtM4p || ext == ExtM3u {
+	if ext == ExtMp3 ||
+		ext == ExtMp4 ||
+		ext == ExtM4a ||
+		ext == ExtM4p ||
+		ext == ExtOpus ||
+		ext == ExtM3u {
 		return true
 	}
 	return false
