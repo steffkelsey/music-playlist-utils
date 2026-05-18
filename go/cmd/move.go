@@ -67,7 +67,7 @@ music-utils playlist move -i "$HOME/Music" -r -o "$HOME/Music/playlists`,
 
 		// If a dry run, we can't do anything else but print the report
 		if isDryRun {
-			j, _ := json.Marshal(&movedReport)
+			j, _ := json.MarshalIndent(&movedReport, "", "  ")
 			fmt.Println(string(j))
 			return nil
 		}
@@ -104,6 +104,11 @@ music-utils playlist move -i "$HOME/Music" -r -o "$HOME/Music/playlists`,
 			}
 		}
 
+		if len(movedReport.Skipped) > 0 {
+			j, _ := json.MarshalIndent(&movedReport, "", "  ")
+			fmt.Println(string(j))
+		}
+
 		return nil
 	},
 }
@@ -115,10 +120,10 @@ func init() {
 // getPathWhenMovingPlaylist is a process function for getting the path of a music file
 // when the playlist is being moved to a new location while the music files remain in
 // place
-func getPathWhenMovingPlaylist(path string, sourcePlPath string, destPlDir string) string {
+func getPathWhenMovingPlaylist(path string, sourcePlDirPath string, destPlDir string) string {
 	// create the new path
 	if !filepath.IsAbs(path) {
-		path = common.MoveRelativePath(path, filepath.Dir(sourcePlPath), destPlDir)
+		path = common.MoveRelativePath(path, sourcePlDirPath, destPlDir)
 	}
 	return path
 }
